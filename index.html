@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>L'Atelier Privé de David Boyer — La Carte</title>
+  <link rel="apple-touch-icon" href="db-carte-icon.png">
+  <link rel="icon" type="image/png" href="db-carte-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    :root {
+      --gold:   #BA7517;
+      --gold-d: #854F0B;
+      --serif:  'Cormorant Garamond', Georgia, serif;
+      --sans:   -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --bg:     #FAFAF8;
+      --bg2:    #F2F0EA;
+      --border: #E0DDD4;
+      --txt:    #1A1916;
+      --txt2:   #6B6860;
+      --txt3:   #A09E97;
+      --red:    #A32D2D;
+      --green:  #085041;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--txt);
+      -webkit-tap-highlight-color: transparent;
+      display: flex; flex-direction: column; width: 100%;
+    }
+    button { cursor: pointer; font-family: var(--sans); border: none; }
+    input, textarea, select { font-family: var(--sans); }
+    .view { display: none; flex-direction: column; flex: 1; }
+    .view.active { display: flex; }
+
+    /* ── HEADER CLIENT ── */
+    .hdr {
+      text-align: center;
+      padding: 1.2rem 3.5rem .9rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 100;
+      flex-shrink: 0;
+      user-select: none; -webkit-user-select: none;
+    }
+    .hdr-sup  { font-family: var(--serif); font-size: 26px; font-weight: 300; color: var(--txt); margin-bottom: .15rem; letter-spacing: .04em; }
+    .hdr-title { font-size: 9px; letter-spacing: .35em; text-transform: uppercase; color: var(--txt3); }
+    .hdr-sub  { font-size: 9px; letter-spacing: .25em; text-transform: uppercase; color: var(--txt3); margin-top: .2rem; }
+    .hdr-fs { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; color: var(--txt3); cursor: pointer; padding: 6px; line-height: 1; }
+
+    /* ── ONGLETS MENUS ── */
+    .menu-tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); overflow-x: auto; flex-shrink: 0; }
+    .menu-tab {
+      flex: 1; min-width: 120px; background: none; border: none;
+      border-bottom: 2.5px solid transparent;
+      padding: 11px 6px; font-size: 9px; letter-spacing: .13em; text-transform: uppercase;
+      color: var(--txt2); transition: color .2s, border-color .2s; white-space: nowrap;
+    }
+    .menu-tab.on { color: var(--gold); border-bottom-color: var(--gold); font-weight: 600; }
+
+    /* ── CONTENU CLIENT ── */
+    #client-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .client-body { max-width: 580px; margin: 0 auto; padding: 0 1.25rem 3rem; }
+
+    /* Footer client avec prix */
+    .client-footer {
+      flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+      padding: .8rem 1.5rem; border-top: .5px solid var(--border); background: var(--bg);
+    }
+    .client-footer-price { font-family: var(--serif); font-size: 22px; font-weight: 300; color: var(--gold); letter-spacing: .03em; }
+    .client-footer-label { font-size: 8px; letter-spacing: .2em; text-transform: uppercase; color: var(--txt3); margin-top: 1px; }
+    .client-footer-right { display: flex; align-items: center; gap: 10px; }
+    .btn-aller { font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--txt3); background: none; border: .5px solid var(--border); border-radius: 4px; padding: 5px 9px; cursor: pointer; }
+    .btn-aller:hover { color: var(--gold); border-color: var(--gold); }
+
+    /* Plats côté client — noms seulement */
+    .item {
+      padding: 11px 0;
+      border-bottom: .5px solid var(--border);
+      cursor: pointer;
+    }
+    .item:last-child { border-bottom: none; }
+    .item-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .item-name { font-family: var(--serif); font-size: 21px; font-weight: 400; color: var(--txt); line-height: 1.2; letter-spacing: .01em; }
+    .item:active .item-name { color: var(--gold); }
+    .item-desc { display: none; padding: 6px 0 2px; animation: fd .2s ease; }
+    .item-desc.open { display: block; }
+    @keyframes fd { from { opacity:0; transform:translateY(-3px) } to { opacity:1; transform:translateY(0) } }
+    .item-desc p { font-family: var(--serif); font-size: 16px; font-style: italic; font-weight: 300; color: var(--txt2); line-height: 1.6; }
+
+    /* Séparateur discret entre séquences */
+    .seq-gap { height: 1.2rem; }
+    .seq-gap:first-child { height: 0; }
+
+    /* Option fromage */
+    .fromage-block {
+      margin: 1rem 0 .5rem;
+      padding: .8rem 1rem;
+      background: var(--bg2);
+      border: .5px solid var(--border);
+      border-radius: 6px;
+    }
+    .fromage-lbl { font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); margin-bottom: .5rem; }
+
+    /* ── LOGIN ── */
+    #v-login { align-items: center; justify-content: center; }
+    .lg-card { max-width: 320px; width: 100%; margin: 3rem auto; padding: 2rem 1.5rem; }
+    .lg-title { font-family: var(--serif); font-size: 22px; color: var(--txt); margin-bottom: .25rem; }
+    .lg-sub { font-size: 12px; color: var(--txt2); margin-bottom: 1.5rem; }
+    .lg-card input {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 15px; background: var(--bg); color: var(--txt); margin-bottom: .75rem; outline: none;
+    }
+    .lg-card input:focus { border-color: var(--gold); }
+    .btn-pri { width: 100%; background: var(--gold); border: none; color: #fff; padding: 11px; border-radius: 6px; font-size: 14px; font-weight: 500; }
+    .btn-pri:hover { background: var(--gold-d); }
+    .btn-bk { margin-top: .9rem; background: none; border: none; color: var(--txt2); font-size: 12px; text-decoration: underline; display: block; text-align: center; }
+    .err-msg { font-size: 11px; color: var(--red); margin-top: .4rem; min-height: 1em; }
+
+    /* ── ADMIN ── */
+    #v-admin { overflow: hidden; background: var(--bg); }
+    .adm-hdr {
+      display: flex; align-items: center; gap: 6px; padding: .75rem 1rem;
+      border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg); flex-wrap: wrap;
+    }
+    .adm-title { font-family: var(--serif); font-size: 16px; color: var(--txt); flex: 1; min-width: 80px; }
+    .mode-btn {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 5px 10px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--txt2); white-space: nowrap; transition: all .15s;
+    }
+    .mode-btn.on { background: var(--gold); border-color: var(--gold); color: #fff; }
+    .mode-btn:hover:not(.on) { background: var(--bg2); }
+    .adm-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .adm-body { max-width: 720px; margin: 0 auto; padding: 1.25rem 1.25rem 5rem; }
+
+    /* Sections admin */
+    .e-sec {
+      font-size: 10px; letter-spacing: .25em; text-transform: uppercase; color: var(--gold);
+      margin: 1.5rem 0 .6rem; display: flex; align-items: center; justify-content: space-between;
+    }
+    .e-sec:first-child { margin-top: 0; }
+
+    /* Menu card */
+    .menu-card {
+      border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px;
+      margin-bottom: 8px; background: var(--bg); cursor: pointer; transition: border-color .15s;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .menu-card.sel { border-color: var(--gold); }
+    .menu-card:hover { border-color: var(--gold-d); }
+    .mc-info { flex: 1; }
+    .mc-name { font-family: var(--serif); font-size: 15px; }
+    .mc-meta { font-size: 11px; color: var(--txt2); margin-top: 3px; }
+    .mc-actions { display: flex; gap: 5px; }
+
+    /* Séquence admin */
+    .seq-card { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+    .seq-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 12px; background: var(--bg2); border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .seq-hdr-left { display: flex; align-items: center; gap: 8px; }
+    .seq-lbl { font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+    .seq-badge {
+      font-size: 8px; padding: 1px 6px; border-radius: 10px;
+      background: #FEF9EE; border: 1px solid var(--gold); color: var(--gold-d);
+    }
+    .seq-controls { display: flex; gap: 4px; align-items: center; }
+    .seq-body { padding: 10px 12px; }
+
+    /* Dish card */
+    .dish-card {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+      margin-bottom: 6px; background: var(--bg2);
+    }
+    .dc-info { flex: 1; min-width: 0; }
+    .dc-name { font-family: var(--serif); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dc-meta { font-size: 11px; color: var(--txt2); margin-top: 2px; }
+    .dc-actions { display: flex; gap: 4px; }
+
+    /* Menus dans séquence (quels menus incluent cette séquence) */
+    .menu-toggles { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; margin-bottom: 4px; }
+    .menu-toggle {
+      font-size: 9px; padding: 3px 8px; border-radius: 10px; cursor: pointer;
+      border: 1px solid var(--border); background: var(--bg); color: var(--txt3);
+      transition: all .15s; user-select: none;
+    }
+    .menu-toggle.on { background: var(--gold); border-color: var(--gold); color: #fff; }
+
+    /* Boutons */
+    .btn-sm {
+      border: 1px solid var(--border); background: var(--bg); color: var(--txt2);
+      padding: 5px 10px; border-radius: 6px; font-size: 10px; letter-spacing: .06em;
+      text-transform: uppercase; transition: all .15s;
+    }
+    .btn-sm:hover { border-color: var(--gold); color: var(--gold); background: var(--bg2); }
+    .btn-sm.danger { border-color: transparent; color: var(--txt3); }
+    .btn-sm.danger:hover { color: var(--red); background: none; }
+    .btn-icon { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .btn-add {
+      display: flex; align-items: center; gap: 6px; background: none;
+      border: 1px dashed var(--border); border-radius: 6px; padding: 7px 12px;
+      color: var(--txt3); font-size: 12px; width: 100%; margin-top: 8px; transition: all .15s;
+    }
+    .btn-add:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* Formulaires */
+    .frow { margin-bottom: .85rem; }
+    .frow label { display: block; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: var(--txt3); margin-bottom: .3rem; }
+    .frow input, .frow select, .frow textarea {
+      width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 6px;
+      font-size: 14px; background: var(--bg); color: var(--txt); outline: none;
+    }
+    .frow input:focus, .frow select:focus, .frow textarea:focus { border-color: var(--gold); }
+    .frow textarea { resize: vertical; min-height: 70px; line-height: 1.6; }
+    .f2col { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: .85rem; }
+    .f2col .frow { margin: 0; }
+
+    /* MEP rows */
+    .mep-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+    .mep-lbl { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 13px; background: var(--bg); color: var(--txt); outline: none; }
+    .mep-qty { flex: 0 0 120px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; font-size: 13px; background: var(--bg); color: var(--txt); outline: none; }
+    .mep-lbl:focus, .mep-qty:focus { border-color: var(--gold); }
+    .mep-sub-sep { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); margin: 10px 0 6px; }
+    .mep-sub-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--txt3); font-size: 10px; }
+
+    /* Allergènes */
+    .allergen-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 5px; margin-top: .5rem; }
+    .a-pill {
+      display: flex; align-items: center; gap: 6px; padding: 6px 9px;
+      border: 1px solid var(--border); border-radius: 5px; font-size: 12px;
+      color: var(--txt2); cursor: pointer; transition: all .15s; user-select: none;
+    }
+    .a-pill.on { border-color: var(--gold); background: #FEF9EE; color: var(--gold-d); }
+    .a-pill input { display: none; }
+    .sec-sep { font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--txt3); margin: 1.2rem 0 .5rem; padding-bottom: 5px; border-bottom: .5px solid var(--border); }
+
+    /* Tableau allergènes */
+    .allergen-tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .allergen-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .allergen-tbl th, .allergen-tbl td { border: 1px solid var(--border); padding: 4px 3px; text-align: center; vertical-align: bottom; }
+    .allergen-tbl th {
+      background: var(--bg2); color: var(--gold-d); font-weight: 600; font-size: 9px;
+      white-space: nowrap; writing-mode: vertical-rl; transform: rotate(180deg); padding: 8px 4px; width: 32px;
+    }
+    .allergen-tbl th:first-child {
+      writing-mode: horizontal-tb; transform: none; text-align: left; min-width: 140px;
+      padding-left: 8px; vertical-align: middle; font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+    }
+    .allergen-tbl td:first-child { text-align: left; padding-left: 8px; }
+    .allergen-tbl td.hit { background: #FEF3D0; color: var(--gold-d); font-size: .95rem; }
+    .allergen-tbl .grp-row td { background: var(--bg2); font-style: italic; font-size: 10px; color: var(--txt3); }
+
+    /* ── MODAL ── */
+    .modal-ov {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200;
+      display: none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-ov.open { display: flex; }
+    .modal {
+      background: var(--bg); border-radius: 12px; width: 100%; max-width: 520px;
+      max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.12);
+    }
+    .modal-title {
+      font-family: var(--serif); font-size: 20px; color: var(--txt);
+      padding: 1.5rem 1.5rem .75rem; flex-shrink: 0;
+    }
+    .modal-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 1.5rem .5rem; }
+    .modal-btns {
+      display: flex; gap: 8px; flex-shrink: 0;
+      padding: .85rem 1.5rem 1.25rem; border-top: 1px solid var(--border);
+    }
+    .btn-ok { flex: 1; background: var(--gold); border: none; color: #fff; padding: 11px; border-radius: 6px; font-size: 14px; font-weight: 500; }
+    .btn-ok:hover { background: var(--gold-d); }
+    .btn-cancel { background: none; border: 1px solid var(--border); color: var(--txt2); padding: 11px 16px; border-radius: 6px; font-size: 14px; }
+
+    .msg-inline { font-size: 12px; margin-top: .4rem; min-height: 1em; }
+
+    /* ── IA ASSISTANT ── */
+    .ia-setup { text-align: center; padding: 2rem 0; }
+    .ia-setup p { color: var(--txt2); font-size: 13px; margin-bottom: 1rem; line-height: 1.6; }
+    .chat-wrap { display: flex; flex-direction: column; height: 460px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+    .chat-msgs { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .7rem; }
+    .msg { max-width: 82%; padding: .6rem .9rem; border-radius: 12px; font-size: 13px; line-height: 1.55; word-break: break-word; }
+    .msg.user { align-self: flex-end; background: var(--gold); color: #fff; border-radius: 12px 12px 2px 12px; }
+    .msg.ai   { align-self: flex-start; background: var(--bg2); color: var(--txt); border-radius: 12px 12px 12px 2px; white-space: pre-wrap; }
+    .msg.thinking { color: var(--txt3); font-style: italic; }
+    .chat-input-row { display: flex; gap: 8px; padding: .65rem .75rem; border-top: 1px solid var(--border); background: var(--bg); align-items: flex-end; }
+    .chat-input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 18px; font-size: 13px; background: var(--bg); color: var(--txt); outline: none; resize: none; line-height: 1.4; max-height: 90px; overflow-y: auto; }
+    .chat-input:focus { border-color: var(--gold); }
+    .chat-send { background: var(--gold); border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .15s; }
+    .chat-send:hover { background: var(--gold-d); }
+    .ia-badge { font-size: 7.5px; padding: 1px 5px; background: var(--gold); color: #fff; border-radius: 8px; vertical-align: middle; margin-left: 4px; letter-spacing: .05em; }
+    .btn-gastro { font-size: 10px; padding: 5px 10px; border-radius: 5px; border: 1px solid var(--gold); background: #FEF9EE; color: var(--gold-d); cursor: pointer; transition: all .15s; white-space: nowrap; }
+    .btn-gastro:hover { background: var(--gold); color: #fff; }
+    .btn-gastro:disabled { opacity: .5; cursor: default; }
+    .field-ai-row { display: flex; align-items: flex-start; gap: 7px; }
+    .field-ai-row textarea { flex: 1; }
+
+    /* Toast confirmation */
+    .toast {
+      position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+      background: var(--txt); color: #fff; padding: 9px 20px;
+      border-radius: 22px; font-size: 12px; letter-spacing: .04em;
+      z-index: 500; opacity: 0; transition: opacity .25s; pointer-events: none;
+      white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.18);
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 540px) {
+      .hdr-title { font-size: 9px; }
+      .allergen-grid { grid-template-columns: repeat(2,1fr); }
+      .f2col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ CLIENT ══ -->
+<div id="v-client" class="view active">
+  <header class="hdr" id="hdr-tap" style="position:relative">
+    <div class="hdr-sup">L'Atelier Privé</div>
+    <div class="hdr-title">David Boyer</div>
+    <div class="hdr-sub">La Carte</div>
+    <button class="hdr-fs" onclick="toggleFullscreen(event)" id="btn-fs" title="Plein écran">⛶</button>
+  </header>
+  <div class="menu-tabs" id="menu-tabs"></div>
+  <div id="client-scroll" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <div class="client-body" id="client-body"></div>
+  </div>
+  <div class="client-footer" id="client-footer" style="display:none">
+    <div>
+      <div class="client-footer-price" id="footer-price"></div>
+      <div class="client-footer-label">par personne · toutes taxes comprises</div>
+    </div>
+    <div class="client-footer-right">
+      <button class="btn-aller" onclick="showAllergenModal()">Allergènes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ALLERGÈNES CLIENT ══ -->
+<div class="modal-ov" id="modal-aller-client">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-title" style="font-size:16px">Tableau des allergènes</div>
+    <div class="modal-scroll"><div id="modal-aller-body"></div></div>
+    <div class="modal-btns">
+      <button class="btn-ok" onclick="document.getElementById('modal-aller-client').classList.remove('open')">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="v-login" class="view">
+  <div class="lg-card">
+    <div class="lg-title">Administration</div>
+    <div class="lg-sub">L'Atelier Privé de David Boyer</div>
+    <input type="password" id="login-input" placeholder="Mot de passe"
+           onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="btn-pri" onclick="doLogin()">Accéder</button>
+    <div class="err-msg" id="login-err"></div>
+    <button class="btn-bk" onclick="showView('client')">← Retour à la carte</button>
+  </div>
+</div>
+
+<!-- ══ ADMIN ══ -->
+<div id="v-admin" class="view">
+  <div class="adm-hdr">
+    <span class="adm-title">DB-CARTE · Admin</span>
+    <button class="mode-btn on" id="tab-plats"     onclick="adminTab('plats')">Plats</button>
+    <button class="mode-btn"   id="tab-menus"      onclick="adminTab('menus')">Menus</button>
+    <button class="mode-btn"   id="tab-allergenes" onclick="adminTab('allergenes')">Allergènes</button>
+    <button class="mode-btn"   id="tab-reglages"   onclick="adminTab('reglages')">Réglages</button>
+    <button class="mode-btn"   id="tab-ia"         onclick="adminTab('ia')">IA ✦</button>
+    <button class="mode-btn"   onclick="exportMEP()">↓ MEP</button>
+    <button class="mode-btn"   onclick="exportAllergenesPDF()">↓ Allergènes</button>
+    <button class="mode-btn"   onclick="showView('client')">← Carte</button>
+  </div>
+  <div class="adm-scroll">
+    <div class="adm-body">
+      <div id="pane-plats"></div>
+      <div id="pane-menus"      style="display:none"></div>
+      <div id="pane-allergenes" style="display:none"></div>
+      <div id="pane-reglages"   style="display:none"></div>
+      <div id="pane-ia"         style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SETUP (premier lancement) ══ -->
+<div id="v-setup" class="view">
+  <div style="flex:1;width:100%;display:flex;align-items:center;justify-content:center;padding:2rem">
+    <div style="max-width:360px;width:100%;text-align:center">
+      <div style="font-family:var(--serif);font-size:24px;color:var(--txt);margin-bottom:.3rem">L'Atelier Privé</div>
+      <div style="font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:var(--txt3);margin-bottom:2.5rem">Configuration</div>
+      <div style="border-top:1px solid var(--border);width:40px;margin:0 auto 2rem"></div>
+      <p style="font-size:13px;color:var(--txt2);line-height:1.7;margin-bottom:1.75rem">
+        Pour activer l'assistant IA (autocorrection, rédaction gastronomique, chat admin),<br>entrez votre clé API Anthropic.<br>
+        <span style="font-size:11px;color:var(--txt3)">Stockée sur cet appareil uniquement.</span>
+      </p>
+      <div style="text-align:left;margin-bottom:.75rem">
+        <label style="font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--txt3);display:block;margin-bottom:.3rem">Clé API Anthropic</label>
+        <div style="display:flex;gap:6px">
+          <input type="password" id="setup-key" placeholder="sk-ant-api03-…"
+            style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;background:var(--bg);color:var(--txt);outline:none"
+            onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor=''"
+            onkeydown="if(event.key==='Enter')saveSetupKey()">
+          <button onclick="toggleSetupKeyVis()" style="padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--txt2);font-size:13px;cursor:pointer">👁</button>
+        </div>
+      </div>
+      <div id="setup-err" style="font-size:11px;color:var(--red);min-height:1em;margin-bottom:.5rem"></div>
+      <button onclick="saveSetupKey()" class="btn-pri" style="width:100%;margin-bottom:.85rem">Commencer</button>
+      <button onclick="skipSetup()" style="background:none;border:none;font-size:12px;color:var(--txt3);text-decoration:underline;cursor:pointer">Ignorer — utiliser sans IA</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ══ MODAL PLAT ══ -->
+<div class="modal-ov" id="modal-dish">
+  <div class="modal">
+    <div class="modal-title" id="modal-dish-title">Plat</div>
+    <div class="modal-scroll"><div id="modal-dish-body"></div></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeDishModal()">Annuler</button>
+      <button class="btn-ok"     onclick="saveDish()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL SÉQUENCE ══ -->
+<div class="modal-ov" id="modal-seq">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title" id="modal-seq-title">Séquence</div>
+    <div class="modal-scroll">
+      <div class="frow">
+        <label>Nom de la séquence</label>
+        <input type="text" id="seq-name-input" placeholder="ex : Poisson"
+               onkeydown="if(event.key==='Enter') saveSeq()">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeSeqModal()">Annuler</button>
+      <button class="btn-ok"     onclick="saveSeq()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL MENU ══ -->
+<div class="modal-ov" id="modal-menu">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title" id="modal-menu-title">Menu</div>
+    <div class="modal-scroll">
+      <div class="frow">
+        <label>Nom du menu</label>
+        <input type="text" id="menu-name-input" placeholder="ex : Menu Découverte">
+      </div>
+      <div class="f2col">
+        <div class="frow">
+          <label>Prix TTC (€)</label>
+          <input type="number" id="menu-price-input" step="1" min="0" placeholder="80">
+        </div>
+        <div class="frow">
+          <label>TVA</label>
+          <select id="menu-tva-input">
+            <option value="10">10 % — repas sur place</option>
+            <option value="20">20 % — boissons alcoolisées</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeMenuModal()">Annuler</button>
+      <button class="btn-ok"     onclick="saveMenu()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════
+   CONSTANTES
+════════════════════════════════════════════ */
+const ALLERGENS = [
+  'Gluten','Crustacés','Œufs','Poissons','Arachides',
+  'Soja','Lait','Fruits à coque','Céleri','Moutarde',
+  'Sésame','Sulfites','Lupin','Mollusques'
+];
+
+/* ════════════════════════════════════════════
+   DONNÉES — architecture séquences partagées
+   Chaque séquence est globale.
+   Les menus référencent des IDs de séquences.
+════════════════════════════════════════════ */
+function defaultData() {
+  const s = [uid(),uid(),uid(),uid(),uid(),uid()]; // 6 séquences
+  const m = [uid(),uid()];                          // 2 menus
+  return {
+    password: 'atelier',
+    sequences: [
+      { id:s[0], name:'Mise en bouche', fromage:false, dishes:[] },
+      { id:s[1], name:'Entrée',         fromage:false, dishes:[] },
+      { id:s[2], name:'Poisson',        fromage:false, dishes:[] },
+      { id:s[3], name:'Plat',           fromage:false, dishes:[] },
+      { id:s[4], name:'Fromage',        fromage:true,  priceExtra:12, dishes:[] },
+      { id:s[5], name:'Dessert',        fromage:false, dishes:[] },
+    ],
+    menus: [
+      { id:m[0], name:'Menu 4 séquences', priceTTC:80,  tva:10, seqIds:[s[0],s[1],s[3],s[4],s[5]] },
+      { id:m[1], name:'Menu 5 séquences', priceTTC:110, tva:10, seqIds:[s[0],s[1],s[2],s[3],s[4],s[5]] },
+    ]
+  };
+}
+
+let DATA = defaultData();
+
+/* ════════════════════════════════════════════
+   ÉTAT UI
+════════════════════════════════════════════ */
+const S = {
+  clientMenu : 0,
+  openDishes : new Set(),
+  adminTab   : 'plats',
+  expandedSeqs: new Set(),
+  tapCount   : 0,
+  tapTimer   : null,
+  dishCtx    : null,   // { seqId, dishIdx }
+  seqCtx     : null,   // { seqId (null=new) }
+  menuCtx    : null,   // menuId (null=new)
+};
+let _mepPrincipal = [], _mepDecoration = [], _mepSupport = [];
+
+/* ════════════════════════════════════════════
+   UTILITAIRES
+════════════════════════════════════════════ */
+function uid() { return Math.random().toString(36).slice(2,10); }
+function toHT(ttc, tva) { return (ttc / (1 + tva/100)).toFixed(2); }
+
+let _toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function seqById(id)  { return DATA.sequences.find(s => s.id === id); }
+function menuById(id) { return DATA.menus.find(m => m.id === id); }
+
+/* ════════════════════════════════════════════
+   SUPABASE — sync cross-appareils
+════════════════════════════════════════════ */
+const SB_URL = 'https://wtjjmwokiehfyakwbqtn.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0amptd29raWVoZnlha3dicXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MDc2MTIsImV4cCI6MjA5NTI4MzYxMn0.GHZI71WvEsUWtv6IVVLAsNW_NHeAHKNr0I1cHnrAtDI';
+const SB_H = { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+
+async function sbSave(appId, data) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/app_data`, {
+      method: 'POST',
+      headers: { ...SB_H, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ app_id: appId, data, updated_at: new Date().toISOString() })
+    });
+  } catch {}
+}
+async function sbLoad(appId) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/app_data?app_id=eq.${appId}&select=data`, { headers: SB_H });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return rows[0]?.data || null;
+  } catch { return null; }
+}
+async function sbSaveSetting(key, value) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/app_settings`, {
+      method: 'POST',
+      headers: { ...SB_H, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ app_id: 'db-suite', key, value })
+    });
+  } catch {}
+}
+async function sbLoadSetting(key) {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/app_settings?app_id=eq.db-suite&key=eq.${key}&select=value`, { headers: SB_H });
+    if (!r.ok) return null;
+    const rows = await r.json();
+    return rows[0]?.value || null;
+  } catch { return null; }
+}
+
+/* ════════════════════════════════════════════
+   PERSISTANCE
+════════════════════════════════════════════ */
+function save() {
+  DATA._updatedAt = Date.now();
+  localStorage.setItem('db_carte', JSON.stringify(DATA));
+  localStorage.setItem('db_carte_current', JSON.stringify({
+    updatedAt: DATA._updatedAt,
+    menus: DATA.menus.map(m => ({
+      name: m.name,
+      sequences: m.seqIds.map(id => seqById(id)).filter(Boolean).map(s => ({
+        name: s.name,
+        dishes: s.dishes.map(d => ({ name:d.name, description:d.description }))
+      }))
+    }))
+  }));
+  sbSave('db-carte', DATA);
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem('db_carte');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.sequences && parsed.menus && parsed.menus[0]?.seqIds) {
+        DATA = parsed;
+      } else {
+        localStorage.removeItem('db_carte');
+      }
+    }
+  } catch(e) { localStorage.removeItem('db_carte'); }
+}
+
+/* Sync temps réel entre onglets */
+window.addEventListener('storage', e => {
+  if (e.key === 'db_carte') {
+    load();
+    if (document.getElementById('v-client').classList.contains('active')) renderClient();
+  }
+});
+
+/* ════════════════════════════════════════════
+   ROUTING
+════════════════════════════════════════════ */
+function showView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('v-' + v).classList.add('active');
+  if (v === 'client') renderClient();
+  if (v === 'admin')  renderAdmin();
+}
+
+function goLogin() {
+  document.getElementById('login-input').value = '';
+  document.getElementById('login-err').textContent = '';
+  showView('login');
+  setTimeout(() => document.getElementById('login-input').focus(), 80);
+}
+
+function doLogin() {
+  if (document.getElementById('login-input').value === DATA.password) {
+    showView('admin');
+  } else {
+    document.getElementById('login-err').textContent = 'Mot de passe incorrect.';
+  }
+}
+
+/* 5 taps → admin dans un NOUVEL ONGLET */
+document.getElementById('hdr-tap').addEventListener('click', () => {
+  S.tapCount++;
+  clearTimeout(S.tapTimer);
+  if (S.tapCount >= 5) {
+    S.tapCount = 0;
+    const url = location.href.split('#')[0] + '#admin';
+    const w = window.open(url, '_blank');
+    if (!w) goLogin(); // fallback si popup bloqué
+    return;
+  }
+  S.tapTimer = setTimeout(() => { S.tapCount = 0; }, 1800);
+});
+
+/* Le check #admin est géré dans l'INIT en bas du script */
+
+/* ════════════════════════════════════════════
+   VUE CLIENT
+════════════════════════════════════════════ */
+function renderClient() {
+  const tabsEl = document.getElementById('menu-tabs');
+  const bodyEl = document.getElementById('client-body');
+  const menus  = DATA.menus;
+
+  if (!menus.length) {
+    tabsEl.innerHTML = '';
+    bodyEl.innerHTML = '<p style="padding:40px;text-align:center;color:var(--txt3);font-style:italic">Aucun menu disponible.</p>';
+    return;
+  }
+
+  const idx  = Math.min(S.clientMenu, menus.length - 1);
+  const menu = menus[idx];
+
+  tabsEl.innerHTML = menus.map((m, i) =>
+    `<button class="menu-tab ${i===idx?'on':''}" onclick="setClientMenu(${i})">${esc(m.name)}</button>`
+  ).join('');
+
+  // Prix dans le footer
+  const footer = document.getElementById('client-footer');
+  const footerPrice = document.getElementById('footer-price');
+  if (footer && footerPrice) {
+    if (menu.priceTTC) {
+      const fromageSeq = (menu.seqIds||[]).map(id => seqById(id)).find(s => s?.fromage);
+      const fromageExtra = fromageSeq?.priceExtra ? ` <span style="font-size:13px;color:var(--txt3)">+ ${fromageSeq.priceExtra} € fromage</span>` : '';
+      footerPrice.innerHTML = menu.priceTTC + ' €' + fromageExtra;
+      footer.style.display = 'flex';
+    } else {
+      footer.style.display = 'none';
+    }
+  }
+
+  // Séquences du menu — noms de plats seulement, pas d'intitulés de séquence
+  const seqs = (menu.seqIds || []).map(id => seqById(id)).filter(Boolean);
+  let html = '';
+  let firstContent = true;
+
+  seqs.forEach((seq, si) => {
+    if (!seq.dishes.length) return;
+
+    if (seq.fromage) {
+      html += `<div class="fromage-block">
+        <div class="fromage-lbl">Option Fromage</div>
+        ${seq.dishes.map((d, di) => dishRowHtml(idx, seq.id, di, d)).join('')}
+      </div>`;
+      return;
+    }
+
+    if (!firstContent) html += '<div class="seq-gap"></div>';
+    firstContent = false;
+    html += seq.dishes.map((d, di) => dishRowHtml(idx, seq.id, di, d)).join('');
+  });
+
+  bodyEl.innerHTML = html || '<p style="padding:2rem 0;text-align:center;color:var(--txt3);font-style:italic;font-family:var(--serif);font-size:16px">Carte en cours de rédaction.</p>';
+}
+
+function dishRowHtml(menuIdx, seqId, di, d) {
+  const key  = `${menuIdx}-${seqId}-${di}`;
+  const open = S.openDishes.has(key);
+  const desc = d.description
+    ? `<div class="item-desc ${open?'open':''}"><p>${esc(d.description)}</p></div>` : '';
+  const chevron = d.description
+    ? `<span style="font-size:11px;color:var(--txt3)">${open?'▲':'▾'}</span>` : '';
+  return `
+    <div class="item ${open?'open':''}" onclick="toggleDish('${key}')">
+      <div class="item-row">
+        <span class="item-name">${esc(d.name)}</span>${chevron}
+      </div>${desc}
+    </div>`;
+}
+
+function setClientMenu(idx) { S.clientMenu = idx; S.openDishes.clear(); renderClient(); }
+function toggleDish(key) {
+  if (S.openDishes.has(key)) S.openDishes.delete(key); else S.openDishes.add(key);
+  renderClient();
+}
+
+/* Plein écran */
+function toggleFullscreen(e) {
+  e?.stopPropagation();
+  const btn = document.getElementById('btn-fs');
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)
+      ?.call(document.documentElement);
+    if (btn) btn.textContent = '⊠';
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+    if (btn) btn.textContent = '⛶';
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('btn-fs');
+  if (btn) btn.textContent = document.fullscreenElement ? '⊠' : '⛶';
+});
+
+/* Modal allergènes côté client */
+function showAllergenModal() {
+  const rows = [];
+  const menu = DATA.menus[S.clientMenu];
+  if (menu) {
+    (menu.seqIds||[]).forEach(id => {
+      const seq = seqById(id);
+      if (!seq) return;
+      seq.dishes.forEach(d => { if (d.name) rows.push({ name:d.name, al:d.allergens||[] }); });
+    });
+  }
+  const body = document.getElementById('modal-aller-body');
+  if (!rows.length) {
+    body.innerHTML = '<p style="color:var(--txt3);font-style:italic;padding:.5rem 0">Aucune information disponible.</p>';
+  } else {
+    const thCols = ALLERGENS.map(a => `<th>${esc(a)}</th>`).join('');
+    const tRows = rows.map(r => {
+      const cells = ALLERGENS.map(a => `<td class="${r.al.includes(a)?'hit':''}">${r.al.includes(a)?'●':''}</td>`).join('');
+      return `<tr><td>${esc(r.name)}</td>${cells}</tr>`;
+    }).join('');
+    body.innerHTML = `<div class="allergen-tbl-wrap"><table class="allergen-tbl">
+      <thead><tr><th>Plat</th>${thCols}</tr></thead>
+      <tbody>${tRows}</tbody></table></div>
+      <p style="font-size:10px;color:var(--txt3);margin-top:.75rem">14 allergènes réglementaires — Règlement UE n°1169/2011</p>`;
+  }
+  document.getElementById('modal-aller-client').classList.add('open');
+}
+
+/* ════════════════════════════════════════════
+   ADMIN — ONGLETS
+════════════════════════════════════════════ */
+function adminTab(tab) {
+  S.adminTab = tab;
+  ['plats','menus','allergenes','reglages','ia'].forEach(t => {
+    const btn = document.getElementById('tab-' + t);
+    if (btn) btn.classList.toggle('on', t === tab);
+    document.getElementById('pane-' + t).style.display = t === tab ? '' : 'none';
+  });
+  if (tab === 'plats')      renderPlatsPane();
+  if (tab === 'menus')      renderMenusPane();
+  if (tab === 'allergenes') renderAllergenesPane();
+  if (tab === 'reglages')   renderReglagesPane();
+  if (tab === 'ia')         renderIAPane();
+}
+function renderAdmin() { adminTab(S.adminTab); }
+
+/* ── Onglet Plats (séquences globales) ── */
+function renderPlatsPane() {
+  const el = document.getElementById('pane-plats');
+  const seqCards = DATA.sequences.map(seq => {
+    const exp = S.expandedSeqs.has(seq.id);
+
+    // Badges : quels menus incluent cette séquence
+    const badges = DATA.menus.map(m => {
+      const incl = (m.seqIds || []).includes(seq.id);
+      return `<span class="menu-toggle ${incl?'on':''}"
+        onclick="toggleSeqInMenu('${m.id}','${seq.id}')" title="${incl?'Retirer de ce menu':'Ajouter à ce menu'}"
+        >${esc(m.name)}</span>`;
+    }).join('');
+
+    const fromageBtn = `<button class="btn-sm btn-icon" title="${seq.fromage?'Retirer statut fromage':'Marquer comme option fromage'}"
+      onclick="event.stopPropagation();toggleFromage('${seq.id}')">${seq.fromage?'★':'☆'}</button>
+    ${seq.fromage ? `<input type="number" min="0" step="1" value="${seq.priceExtra||0}"
+      style="width:62px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;text-align:center"
+      title="Supplément fromage (€)" placeholder="€ supp."
+      onclick="event.stopPropagation()"
+      onchange="event.stopPropagation();updateFromagePrice('${seq.id}',this.value)">` : ''}`;
+
+    const dishCards = seq.dishes.length
+      ? seq.dishes.map((d, di) => `
+          <div class="dish-card">
+            <div class="dc-info">
+              <div class="dc-name">${esc(d.name)||'<em style="color:var(--txt3)">Sans nom</em>'}</div>
+              ${d.allergens?.length ? `<div class="dc-meta">⚠ ${d.allergens.join(', ')}</div>` : ''}
+              ${d.mep?.length       ? `<div class="dc-meta">${d.mep.length} élément(s) MEP</div>` : ''}
+            </div>
+            <div class="dc-actions">
+              <button class="btn-sm" onclick="openDishModal('${seq.id}',${di})">Éditer</button>
+              <button class="btn-sm btn-icon danger" onclick="delDish('${seq.id}',${di})">✕</button>
+            </div>
+          </div>`).join('')
+      : '<p style="color:var(--txt3);font-size:12px;font-style:italic;padding:4px 0">Aucun plat.</p>';
+
+    return `
+      <div class="seq-card">
+        <div class="seq-hdr" onclick="toggleSeq('${seq.id}')">
+          <div class="seq-hdr-left">
+            <span class="seq-lbl">${esc(seq.name)}</span>
+            ${seq.fromage ? '<span class="seq-badge">Option</span>' : ''}
+          </div>
+          <div class="seq-controls" onclick="event.stopPropagation()">
+            <button class="btn-sm" onclick="openDishModal('${seq.id}',null)">+ Plat</button>
+            ${fromageBtn}
+            <button class="btn-sm btn-icon danger" onclick="delSeq('${seq.id}')">✕</button>
+            <span style="color:var(--txt3);font-size:10px;margin-left:2px">${exp?'▲':'▼'}</span>
+          </div>
+        </div>
+        ${exp ? `<div class="seq-body">
+          <div class="menu-toggles">${badges}</div>
+          ${dishCards}
+        </div>` : ''}
+      </div>`;
+  }).join('') || '<p style="color:var(--txt3);font-style:italic;font-size:13px">Aucune séquence.</p>';
+
+  el.innerHTML = `
+    <div class="e-sec">
+      Séquences <span style="font-size:9px;color:var(--txt3);letter-spacing:0;text-transform:none">— cliquez les badges pour inclure/exclure d'un menu</span>
+    </div>
+    ${seqCards}
+    <button class="btn-add" onclick="openSeqModal(null)">+ Nouvelle séquence</button>`;
+}
+
+function toggleSeq(seqId) {
+  if (S.expandedSeqs.has(seqId)) S.expandedSeqs.delete(seqId);
+  else S.expandedSeqs.add(seqId);
+  renderPlatsPane();
+}
+
+function toggleSeqInMenu(menuId, seqId) {
+  const menu = menuById(menuId);
+  if (!menu) return;
+  const idx = menu.seqIds.indexOf(seqId);
+  if (idx === -1) menu.seqIds.push(seqId);
+  else menu.seqIds.splice(idx, 1);
+  save(); renderPlatsPane();
+}
+
+function toggleFromage(seqId) {
+  const seq = seqById(seqId);
+  if (seq) { seq.fromage = !seq.fromage; if (seq.fromage && !seq.priceExtra) seq.priceExtra = 12; save(); renderPlatsPane(); showToast('✓ Option fromage mise à jour'); }
+}
+function updateFromagePrice(seqId, val) {
+  const seq = seqById(seqId);
+  if (seq) { seq.priceExtra = parseFloat(val) || 0; save(); showToast('✓ Prix fromage enregistré'); }
+}
+
+/* ── Onglet Menus ── */
+function renderMenusPane() {
+  const el = document.getElementById('pane-menus');
+  const cards = DATA.menus.map(m => {
+    const ht = m.priceTTC ? ` · ${m.priceTTC} € TTC (HT : ${toHT(m.priceTTC, m.tva)} €)` : '';
+    const seqNames = (m.seqIds||[]).map(id => seqById(id)?.name).filter(Boolean).join(', ');
+    return `
+      <div class="menu-card">
+        <div class="mc-info">
+          <div class="mc-name">${esc(m.name)}</div>
+          <div class="mc-meta">${seqNames||'Aucune séquence'}${ht}</div>
+        </div>
+        <div class="mc-actions">
+          <button class="btn-sm" onclick="openMenuModal('${m.id}')">Modifier</button>
+          <button class="btn-sm btn-icon danger" onclick="delMenu('${m.id}')">✕</button>
+        </div>
+      </div>`;
+  }).join('') || '<p style="color:var(--txt3);font-style:italic;font-size:13px">Aucun menu.</p>';
+
+  el.innerHTML = `
+    <div class="e-sec">
+      Menus
+      <button class="btn-sm" onclick="openMenuModal(null)">+ Nouveau menu</button>
+    </div>
+    ${cards}
+    <div style="margin-top:1.5rem">
+      <button class="mode-btn" onclick="exportCartePDF()">↓ PDF A5 Carte client</button>
+    </div>`;
+}
+
+/* ── Onglet Allergènes ── */
+function renderAllergenesPane() {
+  const el = document.getElementById('pane-allergenes');
+  const rows = [];
+  DATA.menus.forEach(m => {
+    (m.seqIds||[]).forEach(id => {
+      const seq = seqById(id);
+      if (!seq) return;
+      seq.dishes.forEach(d => rows.push({ menu:m.name, seq:seq.name, name:d.name||'—', al:d.allergens||[] }));
+    });
+  });
+
+  if (!rows.length) {
+    el.innerHTML = '<p style="color:var(--txt3);font-style:italic;font-size:13px;margin-top:1rem">Aucun plat enregistré.</p>';
+    return;
+  }
+
+  const thCols = ALLERGENS.map(a => `<th>${a}</th>`).join('');
+  let tBody = '';
+  let last = null;
+  rows.forEach(r => {
+    if (r.menu !== last) {
+      tBody += `<tr class="grp-row"><td colspan="${ALLERGENS.length+1}">${esc(r.menu)} — ${esc(r.seq)}</td></tr>`;
+      last = r.menu;
+    }
+    const cells = ALLERGENS.map(a => `<td class="${r.al.includes(a)?'hit':''}">${r.al.includes(a)?'●':''}</td>`).join('');
+    tBody += `<tr><td>${esc(r.name)}</td>${cells}</tr>`;
+  });
+
+  el.innerHTML = `
+    <div class="e-sec">
+      14 Allergènes Réglementaires
+      <button class="btn-sm" onclick="exportAllergenesPDF()">↓ PDF</button>
+    </div>
+    <div class="allergen-tbl-wrap">
+      <table class="allergen-tbl">
+        <thead><tr><th>Plat</th>${thCols}</tr></thead>
+        <tbody>${tBody}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ── Onglet Réglages ── */
+function renderReglagesPane() {
+  document.getElementById('pane-reglages').innerHTML = `
+    <div class="e-sec">Mot de passe</div>
+    <div class="f2col">
+      <div class="frow"><label>Nouveau</label><input type="password" id="pwd1" placeholder="Nouveau mot de passe"></div>
+      <div class="frow"><label>Confirmer</label><input type="password" id="pwd2" placeholder="Confirmer"></div>
+    </div>
+    <div class="msg-inline" id="pwd-msg"></div>
+    <button class="btn-sm" style="margin-top:.5rem" onclick="changePwd()">Mettre à jour</button>
+
+    <div class="e-sec" style="margin-top:1.8rem">Sauvegarde JSON</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-sm" onclick="exportJSON()">↓ Exporter</button>
+      <button class="btn-sm" onclick="document.getElementById('imp').click()">↑ Importer</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importJSON(this)">
+    </div>
+
+    <div class="e-sec" style="margin-top:1.8rem">Prix HT (usage interne / compta)</div>
+    <div style="font-size:12px;color:var(--txt2);line-height:1.9">
+      ${DATA.menus.map(m => m.priceTTC
+        ? `${esc(m.name)} : <strong>${m.priceTTC} € TTC</strong> → ${toHT(m.priceTTC, m.tva)} € HT (TVA ${m.tva} %)`
+        : `${esc(m.name)} : prix non renseigné`
+      ).join('<br>')}
+    </div>`;
+}
+
+function changePwd() {
+  const p1 = document.getElementById('pwd1').value;
+  const p2 = document.getElementById('pwd2').value;
+  const msg = document.getElementById('pwd-msg');
+  if (!p1) { msg.style.color='var(--red)'; msg.textContent='Entrez un mot de passe.'; return; }
+  if (p1!==p2) { msg.style.color='var(--red)'; msg.textContent='Les mots de passe ne correspondent pas.'; return; }
+  DATA.password = p1; save();
+  msg.style.color='var(--green)'; msg.textContent='✓ Mis à jour.';
+}
+
+/* ════════════════════════════════════════════
+   CRUD — MENUS
+════════════════════════════════════════════ */
+function openMenuModal(menuId) {
+  S.menuCtx = menuId;
+  const isNew = menuId === null;
+  document.getElementById('modal-menu-title').textContent = isNew ? 'Nouveau menu' : 'Modifier le menu';
+  if (!isNew) {
+    const m = menuById(menuId);
+    document.getElementById('menu-name-input').value  = m.name;
+    document.getElementById('menu-price-input').value = m.priceTTC || '';
+    document.getElementById('menu-tva-input').value   = m.tva || 10;
+  } else {
+    document.getElementById('menu-name-input').value  = '';
+    document.getElementById('menu-price-input').value = '';
+    document.getElementById('menu-tva-input').value   = 10;
+  }
+  document.getElementById('modal-menu').classList.add('open');
+  setTimeout(() => document.getElementById('menu-name-input').focus(), 80);
+}
+function closeMenuModal() { document.getElementById('modal-menu').classList.remove('open'); }
+function saveMenu() {
+  const name     = document.getElementById('menu-name-input').value.trim();
+  if (!name) return;
+  const priceTTC = parseFloat(document.getElementById('menu-price-input').value) || 0;
+  const tva      = parseInt(document.getElementById('menu-tva-input').value) || 10;
+  if (S.menuCtx === null) {
+    DATA.menus.push({ id:uid(), name, priceTTC, tva, seqIds:[] });
+  } else {
+    Object.assign(menuById(S.menuCtx), { name, priceTTC, tva });
+  }
+  save(); closeMenuModal(); renderMenusPane();
+  showToast(S.menuCtx === null ? '✓ Menu créé' : '✓ Menu enregistré');
+}
+function delMenu(menuId) {
+  const m = menuById(menuId);
+  if (!m || !confirm(`Supprimer "${m.name}" ?`)) return;
+  DATA.menus = DATA.menus.filter(x => x.id !== menuId);
+  save(); renderMenusPane();
+}
+
+/* ════════════════════════════════════════════
+   CRUD — SÉQUENCES
+════════════════════════════════════════════ */
+function openSeqModal(seqId) {
+  S.seqCtx = seqId;
+  const isNew = seqId === null;
+  document.getElementById('modal-seq-title').textContent = isNew ? 'Nouvelle séquence' : 'Renommer';
+  document.getElementById('seq-name-input').value = isNew ? '' : (seqById(seqId)?.name || '');
+  document.getElementById('modal-seq').classList.add('open');
+  setTimeout(() => document.getElementById('seq-name-input').focus(), 80);
+}
+function closeSeqModal() { document.getElementById('modal-seq').classList.remove('open'); }
+function saveSeq() {
+  const name = document.getElementById('seq-name-input').value.trim();
+  if (!name) return;
+  if (S.seqCtx === null) {
+    DATA.sequences.push({ id:uid(), name, fromage:false, dishes:[] });
+  } else {
+    const seq = seqById(S.seqCtx);
+    if (seq) seq.name = name;
+  }
+  save(); closeSeqModal(); renderPlatsPane();
+  showToast(S.seqCtx === null ? '✓ Séquence créée' : '✓ Séquence renommée');
+}
+function delSeq(seqId) {
+  const seq = seqById(seqId);
+  if (!seq || !confirm(`Supprimer "${seq.name}" et tous ses plats ?`)) return;
+  DATA.sequences = DATA.sequences.filter(s => s.id !== seqId);
+  DATA.menus.forEach(m => { m.seqIds = m.seqIds.filter(id => id !== seqId); });
+  save(); renderPlatsPane();
+}
+
+/* ════════════════════════════════════════════
+   CRUD — PLATS
+════════════════════════════════════════════ */
+function openDishModal(seqId, dishIdx) {
+  S.dishCtx = { seqId, dishIdx };
+  const seq   = seqById(seqId);
+  const isNew = dishIdx === null;
+  const d     = isNew ? { name:'', description:'', allergens:[], mep:[], recipe:'' } : seq.dishes[dishIdx];
+  // Migration : ancien format plat mep[] → mepPrincipal[]
+  _mepPrincipal = (d.mepPrincipal || d.mep || []).map(r => ({...r}));
+  _mepDecoration = (d.mepDecoration || []).map(r => ({...r}));
+  _mepSupport = (d.mepSupport || []).map(r => ({...r}));
+  document.getElementById('modal-dish-title').textContent = isNew ? 'Nouveau plat' : 'Modifier le plat';
+  renderDishBody(d);
+  document.getElementById('modal-dish').classList.add('open');
+  setTimeout(() => document.getElementById('dish-name-i')?.focus(), 80);
+}
+
+function renderDishBody(d) {
+  const allerHtml = ALLERGENS.map(a => {
+    const on = (d.allergens||[]).includes(a);
+    return `<div class="a-pill ${on?'on':''}" onclick="toggleAller(this)"><input type="checkbox" ${on?'checked':''}>${a}</div>`;
+  }).join('');
+
+  function mepSection(arr, type, placeholder) {
+    return arr.map((r,i) => `
+      <div class="mep-row">
+        <input class="mep-lbl" type="text" placeholder="${placeholder}"
+               value="${esc(r.label||'')}" oninput="_mep${type}[${i}].label=this.value">
+        <input class="mep-qty" type="text" placeholder="Qté / détail"
+               value="${esc(r.qty||'')}" oninput="_mep${type}[${i}].qty=this.value">
+        <button class="btn-sm btn-icon danger" onclick="removeMep('${type}',${i})">✕</button>
+      </div>`).join('');
+  }
+
+  document.getElementById('modal-dish-body').innerHTML = `
+    <div class="frow">
+      <label>Nom du plat</label>
+      <input type="text" id="dish-name-i" value="${esc(d.name||'')}" placeholder="ex : Filet de sole meunière"
+             onblur="autoCorrectField(this)">
+    </div>
+    <div class="frow">
+      <label>Descriptif carte — votre plume
+        ${getApiKey() ? '<button type="button" class="btn-gastro" id="btn-gastro" onclick="rewriteGastronomique()">✦ Gastronomique</button>' : ''}
+      </label>
+      <textarea id="dish-desc-i" rows="3" placeholder="Court descriptif affiché au client."
+                onblur="autoCorrectField(this)">${esc(d.description||'')}</textarea>
+    </div>
+    <div class="sec-sep">Allergènes</div>
+    <div class="allergen-grid" id="aller-grid">${allerHtml}</div>
+    <div class="sec-sep">Fiche de mise en place</div>
+
+    <div class="mep-sub-sep">Éléments principaux <span class="mep-sub-hint">— base du descriptif IA</span></div>
+    <div id="mep-principal">${mepSection(_mepPrincipal,'Principal','Élément principal')}</div>
+    <button class="btn-add" onclick="addMep('Principal')" style="margin-top:4px;margin-bottom:12px;width:auto;display:inline-flex">+ Élément principal</button>
+
+    <div class="mep-sub-sep">Éléments de décoration <span class="mep-sub-hint">— dressage, PDF cuisine uniquement</span></div>
+    <div id="mep-decoration">${mepSection(_mepDecoration,'Decoration','Élément déco')}</div>
+    <button class="btn-add" onclick="addMep('Decoration')" style="margin-top:4px;margin-bottom:12px;width:auto;display:inline-flex">+ Élément déco</button>
+
+    <div class="mep-sub-sep">Support de dressage <span class="mep-sub-hint">— platerie, PDF cuisine uniquement</span></div>
+    <div id="mep-support">${mepSection(_mepSupport,'Support','Ex : assiette creuse Bernardaud Ø28')}</div>
+    <button class="btn-add" onclick="addMep('Support')" style="margin-top:4px;width:auto;display:inline-flex">+ Support</button>
+    <div class="sec-sep">Recette (optionnel)</div>
+    <div class="frow" style="margin:0">
+      <textarea id="dish-recipe-i" rows="5" placeholder="Techniques, températures, dressage...">${esc(d.recipe||'')}</textarea>
+    </div>`;
+}
+
+function toggleAller(el) { el.classList.toggle('on'); el.querySelector('input').checked = el.classList.contains('on'); }
+function getAllergens()   { return [...document.querySelectorAll('#aller-grid .a-pill.on')].map(el => el.textContent.trim()); }
+function captureDish()   {
+  return {
+    name:        document.getElementById('dish-name-i')?.value   || '',
+    description: document.getElementById('dish-desc-i')?.value   || '',
+    recipe:      document.getElementById('dish-recipe-i')?.value || '',
+    allergens:   getAllergens()
+  };
+}
+function addMep(type)      { const c=captureDish(); window[`_mep${type}`].push({label:'',qty:''}); renderDishBody(c); }
+function removeMep(type,i) { const c=captureDish(); window[`_mep${type}`].splice(i,1);            renderDishBody(c); }
+
+async function saveDish() {
+  const { seqId, dishIdx } = S.dishCtx;
+  const seq = seqById(seqId);
+  if (!seq) return;
+
+  // Autocorrection si clé API disponible
+  if (getApiKey()) {
+    const btn = document.querySelector('#modal-dish .btn-ok');
+    const orig = btn?.textContent;
+    if (btn) { btn.textContent = 'Correction…'; btn.disabled = true; }
+
+    // Corriger les champs texte principaux
+    const fields = ['dish-name-i', 'dish-desc-i', 'dish-recipe-i'];
+    await Promise.all(fields.map(id => {
+      const el = document.getElementById(id);
+      return el ? autoCorrectField(el) : Promise.resolve();
+    }));
+
+    // Corriger les labels MEP (toutes sections)
+    async function correctMepSection(arr) {
+      const labels = arr.map(r => r.label).filter(Boolean);
+      if (!labels.length) return;
+      try {
+        const fixed = await callClaude(
+          'Corrige uniquement les fautes d\'orthographe dans cette liste d\'éléments séparés par " | ". Renvoie exactement le même nombre d\'éléments séparés par " | ", rien d\'autre.',
+          [{ role:'user', content: labels.join(' | ') }], 300
+        );
+        if (fixed) {
+          const corrected = fixed.split('|').map(s => s.trim());
+          let ci = 0;
+          arr.forEach(r => { if (r.label) { r.label = corrected[ci++] || r.label; } });
+        }
+      } catch(_) {}
+    }
+    await Promise.all([
+      correctMepSection(_mepPrincipal),
+      correctMepSection(_mepDecoration),
+      correctMepSection(_mepSupport)
+    ]);
+
+    if (btn) { btn.textContent = orig; btn.disabled = false; }
+  }
+
+  const f = captureDish();
+  const dish = {
+    id: dishIdx !== null ? seq.dishes[dishIdx].id : uid(),
+    ...f,
+    mepPrincipal:  _mepPrincipal.filter(r => r.label||r.qty),
+    mepDecoration: _mepDecoration.filter(r => r.label||r.qty),
+    mepSupport:    _mepSupport.filter(r => r.label||r.qty)
+  };
+  if (dishIdx === null) seq.dishes.push(dish); else seq.dishes[dishIdx] = dish;
+  save(); closeDishModal();
+  S.expandedSeqs.add(seqId);
+  renderPlatsPane();
+  showToast(dishIdx === null ? '✓ Plat ajouté' : '✓ Plat enregistré');
+}
+function delDish(seqId, di) {
+  const seq = seqById(seqId);
+  if (!seq) return;
+  if (!confirm(`Supprimer "${seq.dishes[di]?.name||'ce plat'}" ?`)) return;
+  seq.dishes.splice(di, 1);
+  save(); renderPlatsPane();
+}
+function closeDishModal() { document.getElementById('modal-dish').classList.remove('open'); _mepPrincipal=[]; _mepDecoration=[]; _mepSupport=[]; }
+
+/* ════════════════════════════════════════════
+   EXPORT PDF — CARTE CLIENT A5
+════════════════════════════════════════════ */
+function exportCartePDF() {
+  if (!DATA.menus.length) { alert('Aucun menu.'); return; }
+
+  const pages = DATA.menus.map(menu => {
+    const seqs = (menu.seqIds||[]).map(id => seqById(id)).filter(s => s && s.dishes.length);
+    const dishLines = [];
+    let fromageExtra = '';
+
+    seqs.forEach(seq => {
+      if (seq.fromage) {
+        if (seq.priceExtra) fromageExtra = `+ ${seq.priceExtra} € option fromage`;
+        dishLines.push(`<div class="opt-sep"><span class="opt-lbl">Option Fromage</span></div>`);
+        seq.dishes.forEach(d => dishLines.push(`<div class="dish dish-opt">${d.name}</div>`));
+      } else {
+        seq.dishes.forEach(d => dishLines.push(`<div class="dish">${d.name}</div>`));
+        dishLines.push(`<div class="dish-gap"></div>`);
+      }
+    });
+    while (dishLines.length && dishLines[dishLines.length-1].includes('dish-gap')) dishLines.pop();
+
+    const priceHtml = menu.priceTTC ? `
+      <div class="price-block">
+        <div class="price-ttc">${menu.priceTTC} €</div>
+        <div class="price-sub">par personne · toutes taxes comprises</div>
+        ${fromageExtra ? `<div class="price-fromage">${fromageExtra}</div>` : ''}
+      </div>` : '';
+
+    return `
+      <div class="page">
+        <div class="brand">L'Atelier Privé de David Boyer</div>
+        <div class="brand-line"></div>
+        <div class="menu-name">${menu.name}</div>
+        <div class="dishes">${dishLines.join('')}</div>
+        <div class="footer">
+          ${priceHtml}
+          <div class="footer-date">${new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long'})}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A5; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cormorant Garamond', Georgia, serif; background: white; }
+    .page {
+      width: 148mm; height: 210mm; padding: 18mm 16mm 14mm;
+      display: flex; flex-direction: column; page-break-after: always;
+    }
+    .page:last-child { page-break-after: avoid; }
+    .brand {
+      font-family: 'Cormorant Garamond', Georgia, serif; font-size: 9pt; font-weight: 300;
+      letter-spacing: .28em; text-transform: uppercase; color: #A09E97; text-align: center; margin-bottom: 3.5mm;
+    }
+    .brand-line { border-top: .5px solid #BA7517; width: 24mm; margin: 0 auto 5mm; }
+    .menu-name {
+      font-family: 'Cormorant Garamond', Georgia, serif; font-size: 10pt; font-weight: 400;
+      color: #BA7517; text-align: center; letter-spacing: .22em;
+      text-transform: uppercase; margin-bottom: 9mm;
+    }
+    .dishes { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .dish {
+      font-family: 'Cormorant Garamond', Georgia, serif; font-size: 15pt; font-weight: 300;
+      color: #1A1916; text-align: center; padding: 3mm 0; border-bottom: .5px solid #E0DDD4;
+    }
+    .dish:last-child { border-bottom: none; }
+    .dish-gap { height: 3mm; }
+    .dish-opt { color: #6B6860; font-style: italic; font-size: 13pt; }
+    .opt-sep { text-align: center; padding: 2.5mm 0; }
+    .opt-lbl {
+      font-size: 7pt; letter-spacing: .22em; text-transform: uppercase;
+      color: #BA7517; border-top: .5px solid #E0DDD4; border-bottom: .5px solid #E0DDD4;
+      padding: 1.5mm 5mm; display: inline-block;
+    }
+    .footer { border-top: .5px solid #E0DDD4; padding-top: 4mm; margin-top: 6mm; display: flex; justify-content: space-between; align-items: flex-end; }
+    .price-block {}
+    .price-ttc { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18pt; font-weight: 300; color: #BA7517; letter-spacing: .03em; }
+    .price-sub { font-size: 6.5pt; letter-spacing: .12em; text-transform: uppercase; color: #A09E97; margin-top: .8mm; }
+    .price-fromage { font-size: 7pt; color: #BA7517; margin-top: .5mm; letter-spacing: .05em; }
+    .footer-date { font-size: 7pt; letter-spacing: .1em; text-transform: uppercase; color: #C0BDB5; text-align: right; }
+  </style></head><body>${pages}</body></html>`;
+
+  const c = document.createElement('div');
+  c.innerHTML = html;
+  document.body.appendChild(c);
+  html2pdf().set({
+    margin: 0,
+    filename: `DB-CARTE_A5_${new Date().toISOString().slice(0,10)}.pdf`,
+    html2canvas: { scale: 3, useCORS: true },
+    jsPDF: { unit:'mm', format:'a5', orientation:'portrait' }
+  }).from(c).save().then(() => document.body.removeChild(c));
+}
+
+/* ════════════════════════════════════════════
+   EXPORT PDF — FICHES MEP
+════════════════════════════════════════════ */
+function exportMEP() {
+  const items = [];
+  DATA.sequences.forEach(seq => seq.dishes.forEach(d => {
+    if (d.name) items.push({ seqName:seq.name, d });
+  }));
+  if (!items.length) { alert('Aucun plat enregistré.'); return; }
+
+  const pages = items.map(({ seqName, d }) => `
+    <div class="page">
+      <div class="ph">
+        <div class="ph-seq">${seqName}</div>
+        <h1>${d.name}</h1>
+      </div>
+      ${d.description ? `<div class="bt">Descriptif carte</div><p class="it">${d.description}</p>` : ''}
+      ${(d.mepPrincipal||d.mep||[]).length ? `
+        <div class="bt">Éléments principaux</div>
+        <table class="mt">${(d.mepPrincipal||d.mep||[]).map(r=>`<tr><td>${r.label||''}</td><td class="qty">${r.qty||''}</td></tr>`).join('')}</table>` : ''}
+      ${(d.mepDecoration||[]).length ? `
+        <div class="bt">Éléments de décoration</div>
+        <table class="mt">${d.mepDecoration.map(r=>`<tr><td>${r.label||''}</td><td class="qty">${r.qty||''}</td></tr>`).join('')}</table>` : ''}
+      ${(d.mepSupport||[]).length ? `
+        <div class="bt">Support de dressage</div>
+        <table class="mt">${d.mepSupport.map(r=>`<tr><td>${r.label||''}</td><td class="qty">${r.qty||''}</td></tr>`).join('')}</table>` : ''}
+      ${d.recipe ? `<div class="bt">Recette</div><div class="rec">${d.recipe.replace(/\n/g,'<br>')}</div>` : ''}
+      ${d.allergens?.length ? `
+        <div class="bt">Allergènes</div>
+        <div class="tags">${d.allergens.map(a=>`<span class="tag">⚠ ${a}</span>`).join('')}</div>` : ''}
+      <div class="pf">L'Atelier Privé de David Boyer · ${new Date().toLocaleDateString('fr-FR')}</div>
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Georgia,serif;color:#1a1a1a;font-size:11pt}
+    .page{padding:20mm 16mm 14mm;page-break-after:always;min-height:270mm;position:relative}
+    .page:last-child{page-break-after:avoid}
+    .ph{border-bottom:2px solid #BA7517;padding-bottom:10px;margin-bottom:16px}
+    .ph-seq{font-size:7pt;letter-spacing:.14em;text-transform:uppercase;color:#854F0B}
+    h1{font-size:17pt;margin-top:8px;font-weight:400}
+    .bt{font-size:7pt;letter-spacing:.16em;text-transform:uppercase;color:#854F0B;margin:14px 0 7px;border-bottom:1px solid #E0DDD4;padding-bottom:3px}
+    .it{font-style:italic;color:#555;font-size:10.5pt;line-height:1.7}
+    .mt{width:100%;border-collapse:collapse}
+    .mt tr{border-bottom:1px dotted #ddd}
+    .mt td{padding:5px 0;font-size:10.5pt}
+    .mt .qty{text-align:right;color:#666;font-style:italic;width:35%}
+    .rec{font-size:10pt;line-height:1.75;color:#333;white-space:pre-wrap}
+    .tags{display:flex;flex-wrap:wrap;gap:5px}
+    .tag{background:#FEF9EE;border:1px solid #BA7517;border-radius:3px;padding:3px 8px;font-size:8pt;color:#854F0B}
+    .pf{position:absolute;bottom:10mm;right:16mm;font-size:7pt;color:#bbb}
+  </style></head><body>${pages}</body></html>`;
+
+  const c = document.createElement('div');
+  c.innerHTML = html;
+  document.body.appendChild(c);
+  html2pdf().set({
+    margin: 0,
+    filename: `DB-CARTE_MEP_${new Date().toISOString().slice(0,10)}.pdf`,
+    html2canvas: { scale:2 },
+    jsPDF: { unit:'mm', format:'a4', orientation:'portrait' }
+  }).from(c).save().then(() => document.body.removeChild(c));
+}
+
+/* ════════════════════════════════════════════
+   EXPORT PDF — TABLEAU ALLERGÈNES
+════════════════════════════════════════════ */
+function exportAllergenesPDF() {
+  const rows = [];
+  DATA.menus.forEach(m => {
+    (m.seqIds||[]).forEach(id => {
+      const seq = seqById(id);
+      if (!seq) return;
+      seq.dishes.forEach(d => rows.push({ menu:m.name, seq:seq.name, name:d.name||'—', al:d.allergens||[] }));
+    });
+  });
+  if (!rows.length) { alert('Aucun plat enregistré.'); return; }
+
+  const thCols = ALLERGENS.map(a =>
+    `<th style="width:26px;min-width:26px;padding:0;border:1px solid #E0DDD4;background:#F2F0EA;vertical-align:bottom">
+      <div style="height:95px;display:flex;align-items:center;justify-content:center;overflow:visible">
+        <span style="display:block;transform:rotate(-90deg);white-space:nowrap;font-size:6.5pt;color:#854F0B;font-weight:600;letter-spacing:.03em">${a}</span>
+      </div>
+    </th>`
+  ).join('');
+
+  let tBody = '';
+  let last = null;
+  rows.forEach(r => {
+    if (r.menu !== last) {
+      tBody += `<tr><td colspan="${ALLERGENS.length+1}" style="background:#F2F0EA;font-style:italic;font-size:7.5pt;color:#A09E97;padding:5px 8px;border:1px solid #E0DDD4">${r.menu} — ${r.seq}</td></tr>`;
+      last = r.menu;
+    }
+    const cells = ALLERGENS.map(a =>
+      `<td style="text-align:center;border:1px solid #E0DDD4;background:${r.al.includes(a)?'#FEF3D0':'#fff'};font-size:10pt">${r.al.includes(a)?'●':''}</td>`
+    ).join('');
+    tBody += `<tr><td style="border:1px solid #E0DDD4;padding:5px 8px;font-size:9pt">${r.name}</td>${cells}</tr>`;
+  });
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+    *{box-sizing:border-box}
+    body{font-family:Helvetica,Arial,sans-serif;color:#1a1a1a;padding:12mm 10mm}
+    h1{font-size:13pt;color:#854F0B;margin-bottom:4px}
+    .sub{font-size:8pt;color:#888;margin-bottom:12px}
+    table{border-collapse:collapse;width:100%}
+    .note{margin-top:10px;font-size:7pt;color:#bbb}
+  </style></head><body>
+    <h1>Tableau des Allergènes — L'Atelier Privé de David Boyer</h1>
+    <div class="sub">${new Date().toLocaleDateString('fr-FR')}</div>
+    <table><thead><tr>
+      <th style="text-align:left;padding:5px 8px;background:#F2F0EA;border:1px solid #E0DDD4;font-size:9pt">Plat</th>
+      ${thCols}
+    </tr></thead><tbody>${tBody}</tbody></table>
+    <div class="note">Les 14 allergènes réglementaires — Règlement UE n°1169/2011</div>
+  </body></html>`;
+
+  const c = document.createElement('div');
+  c.innerHTML = html;
+  document.body.appendChild(c);
+  html2pdf().set({
+    margin: 0,
+    filename: `DB-CARTE_Allergenes_${new Date().toISOString().slice(0,10)}.pdf`,
+    html2canvas: { scale:2 },
+    jsPDF: { unit:'mm', format:'a4', orientation:'landscape' }
+  }).from(c).save().then(() => document.body.removeChild(c));
+}
+
+/* ════════════════════════════════════════════
+   SAUVEGARDE JSON
+════════════════════════════════════════════ */
+function exportJSON() {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(DATA,null,2)],{type:'application/json'}));
+  a.download = `db-carte-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+function importJSON(input) {
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const p = JSON.parse(e.target.result);
+      if (!Array.isArray(p.sequences) || !Array.isArray(p.menus)) throw new Error('Format invalide');
+      DATA = p; save(); renderAdmin(); alert('Import réussi.');
+    } catch(err) { alert('Erreur : ' + err.message); }
+  };
+  r.readAsText(input.files[0]);
+  input.value = '';
+}
+
+/* ── Fermeture modales par clic extérieur ── */
+['modal-dish','modal-seq','modal-menu'].forEach(id => {
+  document.getElementById(id).addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('open');
+      if (id === 'modal-dish') { _mepPrincipal=[]; _mepDecoration=[]; _mepSupport=[]; }
+    }
+  });
+});
+
+/* ════════════════════════════════════════════
+   INTELLIGENCE ARTIFICIELLE
+════════════════════════════════════════════ */
+function mdHtml(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/`(.+?)`/g, '<code style="background:var(--bg2);padding:1px 4px;border-radius:3px;font-size:.9em">$1</code>')
+    .replace(/\n/g, '<br>');
+}
+const AI_KEY_STORE = 'db_carte_api_key';
+let _iaMessages = [];
+
+function getApiKey()    { return localStorage.getItem(AI_KEY_STORE) || ''; }
+function storeApiKey(k) { localStorage.setItem(AI_KEY_STORE, k.trim()); sbSaveSetting('claude_api_key', k.trim()); }
+
+/* ── Setup premier lancement ── */
+function toggleSetupKeyVis() {
+  const el = document.getElementById('setup-key');
+  if (el) el.type = el.type === 'password' ? 'text' : 'password';
+}
+function saveSetupKey() {
+  const v = (document.getElementById('setup-key')?.value || '').trim();
+  const err = document.getElementById('setup-err');
+  if (!v.startsWith('sk-')) {
+    if (err) { err.textContent = 'Clé invalide — elle doit commencer par sk-ant-…'; }
+    return;
+  }
+  storeApiKey(v);
+  showView('client');
+}
+function skipSetup() { showView('client'); }
+
+/* ── Appel API Claude ── */
+async function callClaude(system, messages, maxTokens = 1024) {
+  const key = getApiKey();
+  if (!key) throw new Error('Clé API non configurée');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({ model:'claude-opus-4-7', max_tokens:maxTokens, system, messages })
+  });
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error?.message || `Erreur ${r.status}`); }
+  return (await r.json()).content[0]?.text || '';
+}
+
+/* ── Autocorrection française ── */
+async function autoCorrectField(el) {
+  const text = (el.value || '').trim();
+  if (!text || !getApiKey() || text.length < 4) return;
+  try {
+    const fixed = await callClaude(
+      'Tu es un correcteur orthographique français expert. Corrige uniquement les fautes d\'orthographe, de grammaire et de typographie dans le texte fourni. Ne reformule pas, ne change pas le style. Renvoie uniquement le texte corrigé, sans guillemets ni explication.',
+      [{ role:'user', content:text }], 300
+    );
+    if (fixed && fixed.trim() !== text) {
+      el.value = fixed.trim();
+      el.style.transition = 'border-color .3s';
+      el.style.borderColor = 'var(--green)';
+      setTimeout(() => { el.style.borderColor = ''; }, 1800);
+    }
+  } catch(_) { /* silencieux */ }
+}
+
+/* ── Réécriture gastronomique ── */
+async function rewriteGastronomique() {
+  const el  = document.getElementById('dish-desc-i');
+  const btn = document.getElementById('btn-gastro');
+  if (!el) return;
+  const dishName = document.getElementById('dish-name-i')?.value?.trim() || '';
+  const text = el.value.trim();
+  if (!getApiKey()) { alert('Clé API non configurée.'); return; }
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+  const mepContext = _mepPrincipal.filter(r => r.label).map(r => r.label + (r.qty ? ` (${r.qty})` : '')).join(', ');
+  const userContent = [
+    dishName ? `Plat : ${dishName}` : '',
+    mepContext ? `Éléments de mise en place : ${mepContext}` : '',
+    text ? `Descriptif existant à améliorer : ${text}` : ''
+  ].filter(Boolean).join('\n');
+
+  if (!userContent) { if (btn) { btn.textContent = '✦ Gastronomique'; btn.disabled = false; } return; }
+
+  try {
+    const result = await callClaude(
+      'Tu es un rédacteur gastronomique de haut niveau pour un restaurant étoilé français. À partir du nom du plat et des éléments de mise en place fournis, rédige un descriptif élégant en style gastronomique soutenu. 2 à 3 phrases maximum, vocabulaire précis et poétique. Renvoie uniquement le descriptif, sans guillemets ni introduction.',
+      [{ role:'user', content:userContent }], 400
+    );
+    if (result) {
+      el.value = result.trim();
+      el.style.transition = 'border-color .3s';
+      el.style.borderColor = 'var(--gold)';
+      setTimeout(() => { el.style.borderColor = ''; }, 2000);
+    }
+  } catch(e) { alert('Erreur IA : ' + e.message); }
+  finally { if (btn) { btn.textContent = '✦ Gastronomique'; btn.disabled = false; } }
+}
+
+/* ── Chat IA admin ── */
+function iaSystemPrompt() {
+  // Toutes les séquences avec leur seqId (même vides)
+  const allSeqs = DATA.sequences.map(s =>
+    `  seqId:"${s.id}" — "${s.name}"${s.fromage?' [Fromage]':''} (${s.dishes.length} plat${s.dishes.length!==1?'s':''})`
+  ).join('\n');
+
+  const carte = DATA.menus.map(m => {
+    const seqs = (m.seqIds||[]).map(id => seqById(id)).filter(Boolean);
+    return `Menu : ${m.name} — menuId:"${m.id}" (${m.priceTTC}€ TTC)\n` + seqs.map(s =>
+      `  [seqId:"${s.id}"] Séquence "${s.name}"${s.fromage?' [Fromage]':''}:\n` +
+      (s.dishes.length
+        ? s.dishes.map((d,i) => `    dishIdx:${i} — "${d.name||'(sans nom)'}" — ${d.description||'(sans descriptif)'}`).join('\n')
+        : '    (aucun plat)')
+    ).join('\n');
+  }).join('\n\n');
+
+  return `Tu es l'assistant culinaire de L'Atelier Privé de David Boyer, restaurant gastronomique français. Tu gères la carte de l'établissement.
+
+Quand l'utilisateur demande une modification, réponds en français avec une confirmation naturelle, puis termine OBLIGATOIREMENT par un bloc d'actions JSON si une modification est demandée :
+
+[ACTIONS]
+[{"type":"add_dish","seqId":"ID","name":"Nom du plat","description":"Descriptif gastronomique","recipe":""},
+ {"type":"delete_dish","seqId":"ID","dishIdx":0},
+ {"type":"update_dish_name","seqId":"ID","dishIdx":0,"value":"Nouveau nom"},
+ {"type":"update_dish_desc","seqId":"ID","dishIdx":0,"value":"Nouveau descriptif"},
+ {"type":"update_dish_recipe","seqId":"ID","dishIdx":0,"value":"Nouvelle recette"},
+ {"type":"update_menu_name","menuId":"ID","value":"Nouveau nom"},
+ {"type":"update_menu_price","menuId":"ID","value":95}]
+[/ACTIONS]
+
+Règles :
+- Pour CRÉER un plat : utilise "add_dish" avec seqId de la séquence cible.
+- Pour MODIFIER : utilise "update_dish_*" avec seqId + dishIdx exact.
+- Pour SUPPRIMER : utilise "delete_dish".
+- Les séquences sont PARTAGÉES entre les menus. Modifier une séquence affecte tous les menus qui la contiennent.
+- Rédige toujours les descriptifs dans un style gastronomique élégant.
+- Utilise les IDs exacts listés ci-dessous.
+
+TOUTES LES SÉQUENCES (avec leurs seqId — à utiliser pour add_dish) :
+${allSeqs}
+
+CARTE ACTUELLE (menus, séquences, plats) :
+${carte}`;
+}
+
+function renderIAPane() {
+  const el  = document.getElementById('pane-ia');
+  const key = getApiKey();
+
+  if (!key) {
+    el.innerHTML = `
+      <div class="e-sec">Assistant IA <span class="ia-badge">Claude</span></div>
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:1rem;line-height:1.6">
+        Aucune clé API configurée. Entrez-la ci-dessous — elle sera mémorisée sur cet appareil.
+      </p>
+      <div style="max-width:420px">
+        <div class="frow">
+          <label>Clé API Anthropic</label>
+          <input type="password" id="ia-key-i" placeholder="sk-ant-api03-…">
+        </div>
+        <button class="btn-sm" onclick="saveIAKey()">Enregistrer la clé</button>
+      </div>`;
+    return;
+  }
+
+  const msgsHtml = _iaMessages.length
+    ? _iaMessages.map(m => `<div class="msg ${m.role==='user'?'user':'ai'}">${m.role==='user'?esc(m.content):mdHtml(m.content)}</div>`).join('')
+    : `<div class="msg ai">Bonjour ! Je suis votre assistant pour L'Atelier Privé. Dites-moi ce que vous souhaitez modifier sur la carte — plats, descriptifs, prix, noms…</div>`;
+
+  el.innerHTML = `
+    <div class="e-sec" style="margin-bottom:.5rem">
+      Assistant IA <span class="ia-badge">Claude</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn-sm" onclick="clearIAChat()">Effacer</button>
+        <button class="btn-sm danger" onclick="removeIAKey()">Changer la clé</button>
+      </div>
+    </div>
+    <p style="font-size:12px;color:var(--txt2);margin-bottom:.75rem">Demandez une modification en langage naturel. L'IA applique les changements directement.</p>
+    <div class="chat-wrap">
+      <div class="chat-msgs" id="chat-msgs">${msgsHtml}</div>
+      <div class="chat-input-row">
+        <textarea class="chat-input" id="chat-input" rows="1"
+          placeholder="ex : Renomme le premier plat de l'entrée en «Velouté de butternut»…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendIA()}"></textarea>
+        <button class="chat-send" onclick="sendIA()">↑</button>
+      </div>
+    </div>`;
+
+  const msgs = document.getElementById('chat-msgs');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function saveIAKey() {
+  const v = (document.getElementById('ia-key-i')?.value || '').trim();
+  if (!v.startsWith('sk-')) { alert('Clé invalide.'); return; }
+  storeApiKey(v);
+  _iaMessages = [];
+  renderIAPane();
+}
+function removeIAKey() { localStorage.removeItem(AI_KEY_STORE); _iaMessages = []; renderIAPane(); }
+function clearIAChat() { _iaMessages = []; renderIAPane(); }
+
+async function sendIA() {
+  const inputEl = document.getElementById('chat-input');
+  if (!inputEl) return;
+  const text = inputEl.value.trim();
+  if (!text) return;
+  inputEl.value = '';
+
+  _iaMessages.push({ role:'user', content:text });
+
+  const msgsEl = document.getElementById('chat-msgs');
+  if (msgsEl) {
+    msgsEl.innerHTML += `<div class="msg user">${esc(text)}</div>`;
+    msgsEl.innerHTML += `<div class="msg ai thinking" id="ia-spin">Réflexion…</div>`;
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
+  try {
+    const reply = await callClaude(
+      iaSystemPrompt(),
+      _iaMessages.map(m => ({ role:m.role, content:m.content })),
+      1800
+    );
+
+    // Extraire et exécuter les actions
+    const actMatch = reply.match(/\[ACTIONS\]([\s\S]*?)\[\/ACTIONS\]/);
+    let display = reply.replace(/\[ACTIONS\][\s\S]*?\[\/ACTIONS\]/g, '').trim();
+    if (actMatch) {
+      try {
+        const actions = JSON.parse(actMatch[1].trim());
+        const nb = applyIAActions(actions);
+        if (nb) { display += `\n\n✓ ${nb} modification${nb>1?'s':''} appliquée${nb>1?'s':''}.`; showToast(`✓ ${nb} modification${nb>1?'s':''} appliquée${nb>1?'s':''}`); }
+      } catch(_) { display += '\n\n⚠ Impossible d\'appliquer les actions (JSON invalide).'; }
+    }
+
+    _iaMessages.push({ role:'assistant', content:display });
+    const spin = document.getElementById('ia-spin');
+    if (spin) spin.remove();
+    if (msgsEl) {
+      msgsEl.innerHTML += `<div class="msg ai">${mdHtml(display)}</div>`;
+      msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+  } catch(e) {
+    const spin = document.getElementById('ia-spin');
+    if (spin) { spin.textContent = '⚠ Erreur : ' + e.message; spin.removeAttribute('id'); }
+  }
+}
+
+function applyIAActions(actions) {
+  let count = 0;
+  actions.forEach(a => {
+    if (a.seqId) S.expandedSeqs.add(a.seqId); // ouvre la séquence modifiée
+    const seq  = a.seqId  ? seqById(a.seqId)   : null;
+    const dish = seq && a.dishIdx != null ? seq.dishes[a.dishIdx] : null;
+    const menu = a.menuId ? menuById(a.menuId) : null;
+    if (a.type === 'add_dish' && seq) {
+      seq.dishes.push({ id:uid(), name:a.name||'', description:a.description||'', recipe:a.recipe||'', allergens:[], mep:[] });
+      count++;
+    }
+    if (a.type === 'delete_dish' && seq && dish) { seq.dishes.splice(a.dishIdx, 1); count++; }
+    if (a.type === 'update_dish_name'   && dish) { dish.name        = a.value; count++; }
+    if (a.type === 'update_dish_desc'   && dish) { dish.description = a.value; count++; }
+    if (a.type === 'update_dish_recipe' && dish) { dish.recipe      = a.value; count++; }
+    if (a.type === 'update_menu_name'   && menu) { menu.name        = a.value; count++; }
+    if (a.type === 'update_menu_price'  && menu) { menu.priceTTC    = parseFloat(a.value) || menu.priceTTC; count++; }
+  });
+  if (count) { save(); renderAdmin(); }
+  return count;
+}
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+(async () => {
+  load();
+  const sbData = await sbLoad('db-carte');
+  if (sbData?._updatedAt > (DATA._updatedAt || 0) && sbData.sequences && sbData.menus) {
+    DATA = sbData;
+    localStorage.setItem('db_carte', JSON.stringify(DATA));
+  }
+  if (!getApiKey()) {
+    const k = await sbLoadSetting('claude_api_key');
+    if (k) localStorage.setItem(AI_KEY_STORE, k);
+  }
+  if (location.hash === '#admin') {
+    history.replaceState(null, '', location.pathname);
+    goLogin();
+  } else if (!getApiKey()) {
+    showView('setup');
+  } else {
+    showView('client');
+  }
+})();
+</script>
+</body>
+</html>
