@@ -433,6 +433,7 @@
     <div class="modal-scroll"><div id="modal-dish-body"></div></div>
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeDishModal()">Annuler</button>
+      <button id="btn-accord-vins" class="btn-gastro" onclick="accordVins()">🍷 Accords vins</button>
       <button class="btn-ok"     onclick="saveDish()">Enregistrer</button>
     </div>
   </div>
@@ -1241,6 +1242,65 @@ async function saveDish() {
   renderPlatsPane();
   showToast(dishIdx === null ? '✓ Plat ajouté' : '✓ Plat enregistré');
 }
+async function accordVins() {
+  if (!getApiKey()) { showToast('Clé API requise — voir Réglages'); return; }
+  const f = captureDish();
+  if (!f.name) { showToast('Donnez un nom au plat d\'abord'); return; }
+  const dishName = f.name;
+  const dishDesc = [f.description, (f.mepPrincipal||[]).map(r=>r.label).filter(Boolean).join(', '), f.recipe].filter(Boolean).join('\n');
+  saveDish();
+  showToast('⏳ Recherche des accords vins…');
+  (async () => {
+    try {
+      const wineData = await sbLoad('db-wine');
+      if (!wineData) { showToast('DB-Wine non disponible'); return; }
+      const wines = [];
+      ['aperitifs','vins','digestifs'].forEach(k => {
+        const tab = wineData[k]; if (!tab) return;
+        tab.sections.forEach(sec => {
+          const lists = sec.subsections ? sec.subsections.map(s=>s.items) : [sec.items];
+          lists.forEach(items => items.forEach(it => {
+            if (it.n && it.dispo !== false)
+              wines.push({id:it.id, n:it.n+(it.v?' '+it.v:''), region:it.region||'', cepage:it.cepage||'', note:(it.note||'').slice(0,120)});
+          }));
+        });
+      });
+      if (!wines.length) { showToast('Aucun vin dans DB-Wine'); return; }
+      const prompt = `Tu es sommelier expert à L'Atelier Privé de David Boyer (restaurant gastronomique Michelin).
+Plat : ${dishName}
+Détails : ${dishDesc}
+
+Carte des vins (${wines.length} références) :
+${wines.map(w=>`${w.id} | ${w.n}${w.region?' | '+w.region:''}${w.cepage?' | '+w.cepage:''}${w.note?' | '+w.note:''}`).join('\n')}
+
+Sélectionne 3 à 6 vins qui s'accordent le mieux avec ce plat. Pour chacun, écris une phrase courte et précise (max 90 caractères) expliquant l'harmonie. Réponds UNIQUEMENT en JSON valide sans markdown : [{"id":"...","accord":"..."}]`;
+      const raw = await callClaude('Réponds uniquement en JSON valide, sans markdown.', [{role:'user',content:prompt}], 1200);
+      const clean = raw.replace(/```json|```/g,'').trim();
+      const result = JSON.parse(clean);
+      let updated = 0;
+      const ts = Date.now();
+      result.forEach(({id, accord}) => {
+        ['aperitifs','vins','digestifs'].forEach(k => {
+          const tab = wineData[k]; if (!tab) return;
+          tab.sections.forEach(sec => {
+            const lists = sec.subsections ? sec.subsections.map(s=>s.items) : [sec.items];
+            lists.forEach(items => {
+              const it = items.find(x=>x.id===id); if (!it) return;
+              if (!Array.isArray(it.platAccords)) it.platAccords = [];
+              it.platAccords = it.platAccords.filter(p=>p.platName!==dishName);
+              it.platAccords.push({platName:dishName, accord, date:ts});
+              updated++;
+            });
+          });
+        });
+      });
+      wineData._updatedAt = ts;
+      await sbSave('db-wine', wineData);
+      showToast(`✓ ${updated} vin${updated>1?'s':''} mis à jour dans DB-Wine`);
+    } catch(e) { showToast('Erreur accords vins — réessaie'); console.error(e); }
+  })();
+}
+
 function delDish(seqId, di) {
   const seq = seqById(seqId);
   if (!seq) return;
