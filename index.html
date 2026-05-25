@@ -624,6 +624,7 @@ function save() {
     }))
   }));
   sbSave('db-carte', DATA);
+  sbSaveSetting('carte_last_updated', String(DATA._updatedAt));
 }
 
 function load() {
