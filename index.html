@@ -92,6 +92,8 @@
     .item-desc.open { display: block; }
     @keyframes fd { from { opacity:0; transform:translateY(-3px) } to { opacity:1; transform:translateY(0) } }
     .item-desc p { font-family: var(--serif); font-size: 16px; font-style: italic; font-weight: 300; color: var(--txt2); line-height: 1.6; }
+    .item-vins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .vin-chip { font-size: 11px; letter-spacing: .05em; color: var(--gold); border: 1px solid var(--gold); border-radius: 20px; padding: 3px 10px; font-family: var(--serif); font-style: italic; }
 
     /* Séparateur discret entre séquences */
     .seq-gap { height: 1.2rem; }
@@ -752,9 +754,11 @@ function renderClient() {
 function dishRowHtml(menuIdx, seqId, di, d) {
   const key  = `${menuIdx}-${seqId}-${di}`;
   const open = S.openDishes.has(key);
-  const desc = d.description
-    ? `<div class="item-desc ${open?'open':''}"><p>${esc(d.description)}</p></div>` : '';
-  const chevron = d.description
+  const vins = d.vinsAccord?.length
+    ? `<div class="item-vins">${d.vinsAccord.map(v=>`<span class="vin-chip">🍷 ${esc(v.wineName)}</span>`).join('')}</div>` : '';
+  const desc = d.description || d.vinsAccord?.length
+    ? `<div class="item-desc ${open?'open':''}"><p>${esc(d.description||'')}</p>${vins}</div>` : '';
+  const chevron = (d.description || d.vinsAccord?.length)
     ? `<span style="font-size:11px;color:var(--txt3)">${open?'▲':'▾'}</span>` : '';
   return `
     <div class="item ${open?'open':''}" onclick="toggleDish('${key}')">
