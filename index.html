@@ -303,6 +303,8 @@
     .btn-gastro { font-size: 10px; padding: 5px 10px; border-radius: 5px; border: 1px solid var(--gold); background: #FEF9EE; color: var(--gold-d); cursor: pointer; transition: all .15s; white-space: nowrap; }
     .btn-gastro:hover { background: var(--gold); color: #fff; }
     .btn-gastro:disabled { opacity: .5; cursor: default; }
+    .btn-gastro.stale { background: var(--gold); color: #fff; border-color: var(--gold); }
+    .btn-gastro.stale:hover { background: var(--gold-d); }
     .field-ai-row { display: flex; align-items: flex-start; gap: 7px; }
     .field-ai-row textarea { flex: 1; }
 
@@ -1117,6 +1119,12 @@ function openDishModal(seqId, dishIdx) {
   _mepSupport = (d.mepSupport || []).map(r => ({...r}));
   document.getElementById('modal-dish-title').textContent = isNew ? 'Nouveau plat' : 'Modifier le plat';
   renderDishBody(d);
+  const btnAv = document.getElementById('btn-accord-vins');
+  if (btnAv) {
+    const stale = isNew || !d.lastAccordAt || (d._updatedAt && d._updatedAt > d.lastAccordAt);
+    btnAv.classList.toggle('stale', stale);
+    btnAv.title = stale ? 'Accords vins non calculés ou plat modifié depuis le dernier calcul' : 'Accords vins à jour ✓';
+  }
   document.getElementById('modal-dish').classList.add('open');
   setTimeout(() => document.getElementById('dish-name-i')?.focus(), 80);
 }
@@ -1232,6 +1240,8 @@ async function saveDish() {
   const dish = {
     id: dishIdx !== null ? seq.dishes[dishIdx].id : uid(),
     ...f,
+    _updatedAt: Date.now(),
+    lastAccordAt: dishIdx !== null ? (seq.dishes[dishIdx].lastAccordAt || null) : null,
     mepPrincipal:  _mepPrincipal.filter(r => r.label||r.qty),
     mepDecoration: _mepDecoration.filter(r => r.label||r.qty),
     mepSupport:    _mepSupport.filter(r => r.label||r.qty)
@@ -1246,6 +1256,7 @@ async function accordVins() {
   if (!getApiKey()) { showToast('Clé API requise — voir Réglages'); return; }
   const f = captureDish();
   if (!f.name) { showToast('Donnez un nom au plat d\'abord'); return; }
+  const { seqId } = S.dishCtx;
   const dishName = f.name;
   const dishDesc = [f.description, (f.mepPrincipal||[]).map(r=>r.label).filter(Boolean).join(', '), f.recipe].filter(Boolean).join('\n');
   saveDish();
@@ -1296,6 +1307,8 @@ Sélectionne 3 à 6 vins qui s'accordent le mieux avec ce plat. Pour chacun, éc
       });
       wineData._updatedAt = ts;
       await sbSave('db-wine', wineData);
+      const seq2 = seqById(seqId);
+      if (seq2) { const dsh = seq2.dishes.find(d=>d.name===dishName); if (dsh) { dsh.lastAccordAt = ts; save(); } }
       showToast(`✓ ${updated} vin${updated>1?'s':''} mis à jour dans DB-Wine`);
     } catch(e) { showToast('Erreur accords vins — réessaie'); console.error(e); }
   })();
