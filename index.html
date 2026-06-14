@@ -1862,24 +1862,28 @@ function applyIAActions(actions) {
 /* ════════════════════════════════════════════
    INIT
 ════════════════════════════════════════════ */
+// Affichage immédiat depuis localStorage
+load();
+if (location.hash === '#admin') {
+  history.replaceState(null, '', location.pathname);
+  goLogin();
+} else if (!getApiKey()) {
+  showView('setup');
+} else {
+  showView('client');
+}
+
+// Sync Supabase en arrière-plan (n'affecte pas le démarrage)
 (async () => {
-  load();
+  if (!getApiKey()) {
+    const k = await sbLoadSetting('claude_api_key');
+    if (k) { localStorage.setItem(AI_KEY_STORE, k); showView('client'); }
+  }
   const sbData = await sbLoad('db-carte');
   if (sbData?._updatedAt > (DATA._updatedAt || 0) && sbData.sequences && sbData.menus) {
     DATA = sbData;
     localStorage.setItem('db_carte', JSON.stringify(DATA));
-  }
-  if (!getApiKey()) {
-    const k = await sbLoadSetting('claude_api_key');
-    if (k) localStorage.setItem(AI_KEY_STORE, k);
-  }
-  if (location.hash === '#admin') {
-    history.replaceState(null, '', location.pathname);
-    goLogin();
-  } else if (!getApiKey()) {
-    showView('setup');
-  } else {
-    showView('client');
+    renderClient();
   }
 })();
 </script>
