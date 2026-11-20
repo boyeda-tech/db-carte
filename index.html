@@ -718,8 +718,8 @@ function renderClient() {
   const footerPrice = document.getElementById('footer-price');
   if (footer && footerPrice) {
     if (menu.priceTTC) {
-      const fromageSeq = (menu.seqIds||[]).map(id => seqById(id)).find(s => s?.fromage);
-      const fromageExtra = fromageSeq?.priceExtra ? ` <span style="font-size:13px;color:var(--txt3)">+ ${fromageSeq.priceExtra} € fromage</span>` : '';
+      const optSeqs = (menu.seqIds||[]).map(id => seqById(id)).filter(s => s?.fromage && s.priceExtra);
+      const fromageExtra = optSeqs.map(s => ` <span style="font-size:13px;color:var(--txt3)">+ ${s.priceExtra} € ${esc(s.name.toLowerCase())}</span>`).join('');
       footerPrice.innerHTML = menu.priceTTC + ' €' + fromageExtra;
       footer.style.display = 'flex';
     } else {
@@ -737,7 +737,7 @@ function renderClient() {
 
     if (seq.fromage) {
       html += `<div class="fromage-block">
-        <div class="fromage-lbl">Option Fromage</div>
+        <div class="fromage-lbl">Option ${esc(seq.name)}</div>
         ${seq.dishes.map((d, di) => dishRowHtml(idx, seq.id, di, d)).join('')}
       </div>`;
       return;
@@ -852,11 +852,11 @@ function renderPlatsPane() {
         >${esc(m.name)}</span>`;
     }).join('');
 
-    const fromageBtn = `<button class="btn-sm btn-icon" title="${seq.fromage?'Retirer statut fromage':'Marquer comme option fromage'}"
+    const fromageBtn = `<button class="btn-sm btn-icon" title="${seq.fromage?'Ne plus proposer comme option':'Proposer comme option payante'}"
       onclick="event.stopPropagation();toggleFromage('${seq.id}')">${seq.fromage?'★':'☆'}</button>
     ${seq.fromage ? `<input type="number" min="0" step="1" value="${seq.priceExtra||0}"
       style="width:62px;padding:4px 6px;border:1px solid var(--border);border-radius:5px;font-size:11px;text-align:center"
-      title="Supplément fromage (€)" placeholder="€ supp."
+      title="Prix de l’option (€ TTC par personne)" placeholder="€ supp."
       onclick="event.stopPropagation()"
       onchange="event.stopPropagation();updateFromagePrice('${seq.id}',this.value)">` : ''}`;
 
@@ -883,6 +883,9 @@ function renderPlatsPane() {
             ${seq.fromage ? '<span class="seq-badge">Option</span>' : ''}
           </div>
           <div class="seq-controls" onclick="event.stopPropagation()">
+            <button class="btn-sm btn-icon" title="Monter" onclick="moveSeq('${seq.id}',-1)">↑</button>
+            <button class="btn-sm btn-icon" title="Descendre" onclick="moveSeq('${seq.id}',1)">↓</button>
+            <button class="btn-sm btn-icon" title="Renommer la séquence" onclick="openSeqModal('${seq.id}')">✎</button>
             <button class="btn-sm" onclick="openDishModal('${seq.id}',null)">+ Plat</button>
             ${fromageBtn}
             <button class="btn-sm btn-icon danger" onclick="delSeq('${seq.id}')">✕</button>
@@ -898,7 +901,7 @@ function renderPlatsPane() {
 
   el.innerHTML = `
     <div class="e-sec">
-      Séquences <span style="font-size:9px;color:var(--txt3);letter-spacing:0;text-transform:none">— cliquez les badges pour inclure/exclure d'un menu</span>
+      Séquences <span style="font-size:9px;color:var(--txt3);letter-spacing:0;text-transform:none">— badges : inclure/exclure d'un menu · ★ : option payante avec son prix</span>
     </div>
     ${seqCards}
     <button class="btn-add" onclick="openSeqModal(null)">+ Nouvelle séquence</button>`;
@@ -916,16 +919,31 @@ function toggleSeqInMenu(menuId, seqId) {
   const idx = menu.seqIds.indexOf(seqId);
   if (idx === -1) menu.seqIds.push(seqId);
   else menu.seqIds.splice(idx, 1);
+  sortMenuSeqs(menu);
+  save(); renderPlatsPane();
+}
+
+/* L'ordre des séquences dans un menu suit l'ordre de la liste des séquences */
+function sortMenuSeqs(menu) {
+  const order = DATA.sequences.map(s => s.id);
+  menu.seqIds.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+}
+function moveSeq(seqId, dir) {
+  const i = DATA.sequences.findIndex(s => s.id === seqId);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= DATA.sequences.length) return;
+  [DATA.sequences[i], DATA.sequences[j]] = [DATA.sequences[j], DATA.sequences[i]];
+  DATA.menus.forEach(sortMenuSeqs);
   save(); renderPlatsPane();
 }
 
 function toggleFromage(seqId) {
   const seq = seqById(seqId);
-  if (seq) { seq.fromage = !seq.fromage; if (seq.fromage && !seq.priceExtra) seq.priceExtra = 12; save(); renderPlatsPane(); showToast('✓ Option fromage mise à jour'); }
+  if (seq) { seq.fromage = !seq.fromage; if (seq.fromage && !seq.priceExtra && /fromage/i.test(seq.name)) seq.priceExtra = 12; save(); renderPlatsPane(); showToast('✓ Option mise à jour'); }
 }
 function updateFromagePrice(seqId, val) {
   const seq = seqById(seqId);
-  if (seq) { seq.priceExtra = parseFloat(val) || 0; save(); showToast('✓ Prix fromage enregistré'); }
+  if (seq) { seq.priceExtra = parseFloat(val) || 0; save(); showToast('✓ Prix de l’option enregistré'); }
 }
 
 /* ── Onglet Menus ── */
@@ -954,7 +972,7 @@ function renderMenusPane() {
     </div>
     ${cards}
     <div style="margin-top:1.5rem">
-      <button class="mode-btn" onclick="exportCartePDF()">↓ PDF A5 Carte client</button>
+      <button class="mode-btn" onclick="exportCartePDF()">↓ PDF Carte client (A4, 2 menus A5)</button>
     </div>`;
 }
 
@@ -1334,15 +1352,15 @@ function closeDishModal() { document.getElementById('modal-dish').classList.remo
 function exportCartePDF() {
   if (!DATA.menus.length) { alert('Aucun menu.'); return; }
 
-  const pages = DATA.menus.map(menu => {
+  const pageList = DATA.menus.map(menu => {
     const seqs = (menu.seqIds||[]).map(id => seqById(id)).filter(s => s && s.dishes.length);
     const dishLines = [];
     let fromageExtra = '';
 
     seqs.forEach(seq => {
       if (seq.fromage) {
-        if (seq.priceExtra) fromageExtra = `+ ${seq.priceExtra} € option fromage`;
-        dishLines.push(`<div class="opt-sep"><span class="opt-lbl">Option Fromage</span></div>`);
+        if (seq.priceExtra) fromageExtra += (fromageExtra ? ' · ' : '') + `+ ${seq.priceExtra} € ${seq.name.toLowerCase()}`;
+        dishLines.push(`<div class="opt-sep"><span class="opt-lbl">Option ${seq.name}</span></div>`);
         seq.dishes.forEach(d => dishLines.push(`<div class="dish dish-opt">${d.name}</div>`));
       } else {
         seq.dishes.forEach(d => dishLines.push(`<div class="dish">${d.name}</div>`));
@@ -1369,19 +1387,27 @@ function exportCartePDF() {
           <div class="footer-date">${new Date().toLocaleDateString('fr-FR',{year:'numeric',month:'long'})}</div>
         </div>
       </div>`;
-  }).join('');
+  });
+
+  // Une feuille A4 paysage = deux menus A5 (portrait) côte à côte
+  let pages = '';
+  for (let i = 0; i < pageList.length; i += 2) {
+    pages += `<div class="sheet">${pageList[i]}${pageList[i+1] || ''}</div>`;
+  }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
   <style>
-    @page { size: A5; margin: 0; }
+    @page { size: A4 landscape; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Cormorant Garamond', Georgia, serif; background: white; }
     .page {
-      width: 148mm; height: 210mm; padding: 18mm 16mm 14mm;
-      display: flex; flex-direction: column; page-break-after: always;
+      width: 148mm; height: 209.5mm; padding: 18mm 16mm 14mm; flex: none;
+      display: flex; flex-direction: column;
     }
-    .page:last-child { page-break-after: avoid; }
+    .page + .page { border-left: .3px dashed #D5D2C9; }
+    .sheet { width: 297mm; height: 209.5mm; display: flex; overflow: hidden; page-break-after: always; }
+    .sheet:last-child { page-break-after: avoid; }
     .brand {
       font-family: 'Cormorant Garamond', Georgia, serif; font-size: 9pt; font-weight: 300;
       letter-spacing: .28em; text-transform: uppercase; color: #A09E97; text-align: center; margin-bottom: 3.5mm;
@@ -1419,9 +1445,9 @@ function exportCartePDF() {
   document.body.appendChild(c);
   html2pdf().set({
     margin: 0,
-    filename: `DB-CARTE_A5_${new Date().toISOString().slice(0,10)}.pdf`,
+    filename: `DB-CARTE_A4_2xA5_${new Date().toISOString().slice(0,10)}.pdf`,
     html2canvas: { scale: 3, useCORS: true },
-    jsPDF: { unit:'mm', format:'a5', orientation:'portrait' }
+    jsPDF: { unit:'mm', format:'a4', orientation:'landscape' }
   }).from(c).save().then(() => document.body.removeChild(c));
 }
 
@@ -1691,13 +1717,13 @@ async function rewriteGastronomique() {
 function iaSystemPrompt() {
   // Toutes les séquences avec leur seqId (même vides)
   const allSeqs = DATA.sequences.map(s =>
-    `  seqId:"${s.id}" — "${s.name}"${s.fromage?' [Fromage]':''} (${s.dishes.length} plat${s.dishes.length!==1?'s':''})`
+    `  seqId:"${s.id}" — "${s.name}"${s.fromage?' [Option payante]':''} (${s.dishes.length} plat${s.dishes.length!==1?'s':''})`
   ).join('\n');
 
   const carte = DATA.menus.map(m => {
     const seqs = (m.seqIds||[]).map(id => seqById(id)).filter(Boolean);
     return `Menu : ${m.name} — menuId:"${m.id}" (${m.priceTTC}€ TTC)\n` + seqs.map(s =>
-      `  [seqId:"${s.id}"] Séquence "${s.name}"${s.fromage?' [Fromage]':''}:\n` +
+      `  [seqId:"${s.id}"] Séquence "${s.name}"${s.fromage?' [Option payante]':''}:\n` +
       (s.dishes.length
         ? s.dishes.map((d,i) => `    dishIdx:${i} — "${d.name||'(sans nom)'}" — ${d.description||'(sans descriptif)'}`).join('\n')
         : '    (aucun plat)')
